@@ -284,6 +284,11 @@
 
         <!-- Filtros -->
         <div id="binance-filtros" style="display:none; margin-bottom:12px; display:none;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                <button onclick="filtrarOrdenes('all')"  class="tab-btn active" id="tab-all">Todas</button>
+                <button onclick="filtrarOrdenes('Sell')" class="tab-btn" id="tab-sell">↗ Ventas</button>
+                <button onclick="filtrarOrdenes('Buy')"  class="tab-btn" id="tab-buy">↙ Compras</button>
+            </div>
             <div style="font-size:11px; color:#4a5568;" id="binance-stats"></div>
         </div>
 
@@ -1216,7 +1221,9 @@ function filtrarOrdenes(tipo) {
     const tabMap = { all:'tab-all', Sell:'tab-sell', Buy:'tab-buy', Completed:'tab-comp' };
     document.getElementById(tabMap[tipo] || 'tab-all')?.classList.add('active');
 
-    ordenesFiltr = ordenesB.filter(o => o['Estado'] === 'Completed' && o['Tipo de orden'] === 'Sell');
+    if (tipo === 'Sell') ordenesFiltr = ordenesB.filter(o => o['Estado'] === 'Completed' && o['Tipo de orden'] === 'Sell');
+    else if (tipo === 'Buy') ordenesFiltr = ordenesB.filter(o => o['Estado'] === 'Completed' && o['Tipo de orden'] === 'Buy');
+    else ordenesFiltr = ordenesB.filter(o => o['Estado'] === 'Completed');
 
     const total = ordenesFiltr.length;
     const sells = ordenesFiltr.filter(o => o['Tipo de orden'] === 'Sell' && o['Estado'] === 'Completed').length;
@@ -1283,55 +1290,193 @@ function renderOrdenes() {
                         }
                     </div>
                 </div>
-                ${esComplet && esSell ? `
-                <button onclick="importarOrden(${JSON.stringify(o).replace(/"/g,'&quot;')})"
-                    style="background:#1d4ed8; color:#fff; border:none; border-radius:7px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; align-self:center;">
-                    ↓ Importar
+                ${esComplet ? `
+                <button onclick="importarOrden('${encodeURIComponent(JSON.stringify(o))}')"
+                    style="background:${esSell?'#1d4ed8':'#065f46'};color:#fff;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;align-self:center;">
+                    ${esSell ? '🔗 Vincular' : '↓ Usar'}
                 </button>` : ''}
             </div>
         </div>`;
     }).join('');
 }
 
-function importarOrden(orden) {
-    // Rellenar calculadora con los datos de la orden de venta
-    // orden es una Sell completada — precargamos lo que tenemos
-    const cantidad = parseFloat(orden['Cantidad']) || 0;
-    const precio   = parseFloat(orden['Precio'])   || 0;
-    const comision = parseFloat(orden['Comisión del tomador']) || parseFloat(orden['Comisión del Creador']) || 0;
-    const fecha    = orden['Hora de creación'] || '';
+function importarOrden(ordenJson) {
+    const orden = JSON.parse(decodeURIComponent(ordenJson));
+    // Solo las ventas tienen el flujo de vincular compra
+    if (orden['Tipo de orden'] === 'Sell') {
+        mostrarComprasRelacionadas(orden);
+    } else {
+        // Compra sola — precargar directamente
+        precargarCompra(orden);
+    }
+}
 
-    // Precargar fecha
-    if (fecha) {
-        const fechaDate = new Date(fecha);
-        fechaDate.setMinutes(fechaDate.getMinutes() - fechaDate.getTimezoneOffset());
-        document.getElementById('fecha-op').value = fechaDate.toISOString().slice(0,16);
+function mostrarComprasRelacionadas(venta) {
+    // Buscar compras completadas cercanas a la fecha de la venta (±7 días)
+    const fechaVenta = new Date(venta['Hora de creación']);
+    const compras = ordenesB.filter(o =>
+        o['Estado'] === 'Completed' &&
+        o['Tipo de orden'] === 'Buy'
+    ).sort((a,b) => {
+        // Ordenar por proximidad de fecha a la venta
+        return Math.abs(new Date(a['Hora de creación']) - fechaVenta) -
+               Math.abs(new Date(b['Hora de creación']) - fechaVenta);
+    }).slice(0, 10); // mostrar las 10 más cercanas
+
+    const cantVenta   = parseFloat(venta['Cantidad']) || 0;
+    const precioVenta = parseFloat(venta['Precio'])   || 0;
+    const totalVenta  = parseFloat(venta['Precio total']) || 0;
+    const aliasVenta  = venta['Contraparte'] || '-';
+    const fechaVStr   = venta['Hora de creación'];
+
+    // Crear modal de selección
+    const existente = document.getElementById('modal-vincular');
+    if (existente) existente.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-vincular';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:19999;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:24px;width:95%;max-width:540px;max-height:90vh;overflow-y:auto;">
+            <div style="font-size:13px;font-weight:800;color:#f7c948;letter-spacing:1px;margin-bottom:4px;">🔗 VINCULAR COMPRA CON VENTA</div>
+            <div style="font-size:11px;color:#718096;margin-bottom:16px;">Seleccioná la compra que originó esta venta</div>
+
+            <!-- Venta seleccionada -->
+            <div style="background:#0a1a0a;border:1px solid #166534;border-radius:10px;padding:12px;margin-bottom:16px;">
+                <div style="font-size:10px;color:#4ade80;font-weight:700;margin-bottom:6px;">↗ VENTA (a facturar)</div>
+                <div style="font-size:12px;color:#e2e8f0;display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+                    <span>📅 ${fechaVStr}</span>
+                    <span>₿ ${fmt(cantVenta,2)} USDT</span>
+                    <span>💲 ${precioVenta} ${venta['Tipo de Fiat']}</span>
+                    <span>💰 ${fmt(totalVenta)} ${venta['Tipo de Fiat']}</span>
+                    <span>👤 ${aliasVenta}</span>
+                    <span style="color:#ef4444;">Fee: ${parseFloat(venta['Comisión del tomador']||venta['Comisión del Creador']||0)} USDT</span>
+                </div>
+            </div>
+
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;">Compras completadas (ordenadas por proximidad de fecha):</div>
+
+            ${compras.length === 0
+                ? '<div style="color:#4a5568;font-size:12px;text-align:center;padding:16px;">No hay compras registradas en el CSV</div>'
+                : compras.map(c => {
+                    const cantC  = parseFloat(c['Cantidad']) || 0;
+                    const precC  = parseFloat(c['Precio'])   || 0;
+                    const totC   = parseFloat(c['Precio total']) || 0;
+                    const feeC   = parseFloat(c['Comisión del tomador']||c['Comisión del Creador']||0);
+                    const fechaC = c['Hora de creación'];
+                    const diffH  = Math.round(Math.abs(new Date(fechaC) - fechaVenta) / 36e5);
+                    return `
+                    <div onclick="vincularYImportar('${encodeURIComponent(JSON.stringify(c))}','${encodeURIComponent(JSON.stringify(venta))}')"
+                        style="background:#0f1117;border:1px solid #2d3748;border-left:3px solid #3b82f6;border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;"
+                        onmouseover="this.style.borderColor='#4a6fa5'" onmouseout="this.style.borderColor='#2d3748'">
+                        <div style="font-size:10px;color:#60a5fa;font-weight:700;margin-bottom:4px;">↙ COMPRA · hace ${diffH < 24 ? diffH+'h' : Math.round(diffH/24)+'d'}</div>
+                        <div style="font-size:11px;color:#e2e8f0;display:grid;grid-template-columns:1fr 1fr;gap:3px;">
+                            <span>📅 ${fechaC}</span>
+                            <span>₿ ${fmt(cantC,2)} USDT</span>
+                            <span>💲 ${precC} ${c['Tipo de Fiat']}</span>
+                            <span>💰 ${fmt(totC)} ${c['Tipo de Fiat']}</span>
+                            <span>👤 ${c['Contraparte']||'-'}</span>
+                            <span style="color:#ef4444;">Fee: ${feeC} USDT</span>
+                        </div>
+                    </div>`;
+                }).join('')
+            }
+
+            <button onclick="document.getElementById('modal-vincular').remove()"
+                style="width:100%;margin-top:8px;padding:10px;background:#374151;color:#e2e8f0;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+                ✕ Cancelar
+            </button>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+function vincularYImportar(compraJson, ventaJson) {
+    const compra = JSON.parse(decodeURIComponent(compraJson));
+    const venta  = JSON.parse(decodeURIComponent(ventaJson));
+
+    document.getElementById('modal-vincular')?.remove();
+
+    // Extraer datos
+    const cantCompra  = parseFloat(compra['Cantidad']) || 0;
+    const precCompra  = parseFloat(compra['Precio'])   || 0; // precio en USD
+    const feeCompra   = parseFloat(compra['Comisión del tomador']||compra['Comisión del Creador']||0);
+    const montoUSD    = parseFloat(compra['Precio total']) || 0;
+
+    const precVentaARS = parseFloat(venta['Precio'])      || 0;
+    const feeVenta     = parseFloat(venta['Comisión del tomador']||venta['Comisión del Creador']||0);
+
+    const fechaVenta   = venta['Hora de creación'] || '';
+    const aliasVenta   = venta['Contraparte'] || '';
+    const nroVenta     = venta['Número de orden']?.slice(-8) || '';
+    const nroCompra    = compra['Número de orden']?.slice(-8) || '';
+
+    // Precargar calculadora
+    document.getElementById('monto-usd').value      = montoUSD;
+    document.getElementById('precio-compra').value  = precCompra;
+
+    // Solo si la venta es en ARS
+    if (venta['Tipo de Fiat'] === 'ARS') {
+        document.getElementById('precio-venta-ars').value = precVentaARS;
     }
 
-    // Paso 2: precio de venta en ARS
-    if (orden['Tipo de Fiat'] === 'ARS') {
-        document.getElementById('precio-venta-ars').value = precio;
+    // Precargar comisiones reales
+    if (feeCompra > 0) {
+        const inpCC = document.getElementById('comision-compra');
+        inpCC.value = feeCompra.toFixed(5);
+        inpCC.dataset.manual = '1';
     }
-
-    // Nota con alias y número de orden
-    const alias = orden['Contraparte'] || '';
-    document.getElementById('nota').value = `Binance #${orden['Número de orden']?.slice(-8)} · ${alias}`;
-
-    // Si tenemos comisión real, marcarla para que se use
-    // (el usuario va a ingresar el precio de compra en paso 1)
-    if (comision > 0) {
-        // Mostrar el campo y precargarlo
-        document.getElementById('res-paso2').style.display = 'block';
+    if (feeVenta > 0) {
         const inpCV = document.getElementById('comision-venta');
-        inpCV.value = comision.toFixed(5);
+        inpCV.value = feeVenta.toFixed(5);
         inpCV.dataset.manual = '1';
     }
 
-    // Scrollear a la calculadora
-    document.getElementById('fecha-op').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Fecha de la venta
+    if (fechaVenta) {
+        const fd = new Date(fechaVenta);
+        fd.setMinutes(fd.getMinutes() - fd.getTimezoneOffset());
+        document.getElementById('fecha-op').value = fd.toISOString().slice(0,16);
+    }
 
-    // Mostrar aviso
-    alert(`✅ Orden importada.\n\nFalta completar:\n① Precio de compra USDT (USD)\n③ Tipo de cambio ARS→USD\n\nLa comisión de venta (${comision} USDT) ya está precargada.`);
+    // Nota con ambos números de orden y alias
+    document.getElementById('nota').value =
+        `Compra #${nroCompra} → Venta #${nroVenta} · ${aliasVenta}`;
+
+    // Calcular
+    calcular();
+
+    // Scrollear
+    document.getElementById('fecha-op').scrollIntoView({ behavior:'smooth', block:'start' });
+
+    // Solo falta el tipo de cambio ARS→USD
+    const faltaTipoCambio = venta['Tipo de Fiat'] === 'ARS';
+    if (faltaTipoCambio) {
+        setTimeout(() => {
+            document.getElementById('tipo-cambio').focus();
+            document.getElementById('tipo-cambio').style.border = '2px solid #f7c948';
+        }, 600);
+    }
+}
+
+function precargarCompra(orden) {
+    // Importar solo una compra (sin vincular venta)
+    document.getElementById('monto-usd').value     = parseFloat(orden['Precio total']) || '';
+    document.getElementById('precio-compra').value = parseFloat(orden['Precio'])       || '';
+    const fee = parseFloat(orden['Comisión del tomador']||orden['Comisión del Creador']||0);
+    if (fee > 0) {
+        const inp = document.getElementById('comision-compra');
+        inp.value = fee.toFixed(5);
+        inp.dataset.manual = '1';
+    }
+    const fecha = orden['Hora de creación'];
+    if (fecha) {
+        const fd = new Date(fecha);
+        fd.setMinutes(fd.getMinutes() - fd.getTimezoneOffset());
+        document.getElementById('fecha-op').value = fd.toISOString().slice(0,16);
+    }
+    document.getElementById('nota').value = `Compra #${orden['Número de orden']?.slice(-8)} · ${orden['Contraparte']||''}`;
+    calcular();
+    document.getElementById('fecha-op').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 /* ══════════════════════════════
