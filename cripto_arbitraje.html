@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arbitraje Cripto - ANUAR PROYECTOS</title>
-    <!-- v2.5 — Multi-usuario localStorage · Excel por usuario · versión visible en header -->
+    <!-- v3.0 — Panel importación CSV Binance P2P + Directorio de contrapartes con cédula -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -77,6 +77,29 @@
             background: #1a1f2e; border: 1px solid #2d3748; border-radius: 20px;
             padding: 36px 28px; width: 92%; max-width: 400px; text-align: center;
         }
+        /* Modal directorio contrapartes */
+        #modal-directorio {
+            display: none; position: fixed; inset: 0; z-index: 9998;
+            background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+        }
+        #modal-directorio.open { display: flex; }
+        /* Tabs */
+        .tab-btn {
+            padding: 10px 18px; border: none; border-radius: 8px 8px 0 0;
+            font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px;
+            background: #1a1f2e; color: #718096; border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active { color: #f7c948; border-bottom: 2px solid #f7c948; background: #1a1f2e; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        /* Orden Binance card */
+        .orden-card {
+            background: #0f1117; border: 1px solid #2d3748; border-radius: 10px;
+            padding: 12px 14px; margin-bottom: 8px;
+        }
+        .orden-card:hover { border-color: #4a6fa5; }
+        .orden-sell { border-left: 3px solid #10b981; }
+        .orden-buy  { border-left: 3px solid #3b82f6; }
     </style>
 </head>
 <body>
@@ -86,7 +109,7 @@
     <div class="usuario-box">
         <div style="font-size:36px; margin-bottom:16px;">₿</div>
         <div style="font-size:22px; font-weight:800; color:#f7c948; margin-bottom:6px;">ARBITRAJE CRIPTO</div>
-        <div style="font-size:12px; color:#718096; letter-spacing:2px; margin-bottom:28px;">ANUAR PROYECTOS · v2.5</div>
+        <div style="font-size:12px; color:#718096; letter-spacing:2px; margin-bottom:28px;">ANUAR PROYECTOS · v3.0</div>
         <div style="font-size:13px; color:#94a3b8; margin-bottom:16px;">¿Con qué nombre querés registrarte?</div>
         <input id="input-usuario" class="input-field" type="text" maxlength="30"
             placeholder="Tu nombre o apodo"
@@ -107,7 +130,7 @@
             <div style="font-size:26px;">₿</div>
             <div>
                 <div style="font-size:19px; font-weight:700; color:#f7c948; letter-spacing:-0.5px;">ARBITRAJE CRIPTO</div>
-                <div style="font-size:10px; color:#4a5568; letter-spacing:1px;">v2.5 · ANUAR PROYECTOS</div>
+                <div style="font-size:10px; color:#4a5568; letter-spacing:1px;">v3.0 · ANUAR PROYECTOS</div>
             </div>
             <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
                 <div class="badge">Comisión: <strong>0.038%</strong></div>
@@ -239,6 +262,44 @@
         </div>
     </div>
 
+    <!-- PANEL BINANCE P2P -->
+    <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+            <div>
+                <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">ÓRDENES BINANCE P2P</div>
+                <div style="font-size:10px; color:#4a5568; margin-top:2px;">Importá tu CSV para ver y registrar operaciones</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button onclick="document.getElementById('csv-input').click()"
+                    style="background:#1d4ed8; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
+                    📂 Cargar CSV
+                </button>
+                <button onclick="abrirDirectorio()"
+                    style="background:#0f1117; color:#f7c948; border:1px solid #f7c948; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
+                    📋 Directorio
+                </button>
+            </div>
+            <input type="file" id="csv-input" accept=".csv,.zip" style="display:none;" onchange="cargarCSVBinance(event)">
+        </div>
+
+        <!-- Filtros -->
+        <div id="binance-filtros" style="display:none; margin-bottom:12px; display:none;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                <button onclick="filtrarOrdenes('all')"    class="tab-btn active" id="tab-all">Todas</button>
+                <button onclick="filtrarOrdenes('Sell')"   class="tab-btn" id="tab-sell">Ventas</button>
+                <button onclick="filtrarOrdenes('Buy')"    class="tab-btn" id="tab-buy">Compras</button>
+                <button onclick="filtrarOrdenes('Completed')" class="tab-btn" id="tab-comp">Completadas</button>
+            </div>
+            <div style="font-size:11px; color:#4a5568;" id="binance-stats"></div>
+        </div>
+
+        <div id="binance-panel">
+            <div style="text-align:center; color:#4a5568; padding:20px; font-size:12px;">
+                Exportá el historial desde <strong style="color:#94a3b8;">p2p.binance.com → Todas las Órdenes → ↗ Exportar</strong> y cargalo acá
+            </div>
+        </div>
+    </div>
+
     <!-- HISTORIAL -->
     <div id="seccion-historial" style="display:none; background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -317,6 +378,37 @@
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════════
+     MODAL DIRECTORIO DE CONTRAPARTES
+     Alias Binance → Cédula + Nombre
+══════════════════════════════════════════════ -->
+<div id="modal-directorio">
+    <div class="modal-box" style="max-width:500px;">
+        <div class="modal-title">📋 DIRECTORIO DE CONTRAPARTES</div>
+        <div style="font-size:11px; color:#718096; margin-bottom:16px;">
+            Asociá cada alias de Binance con la cédula y nombre del cliente para autocompletar la factura.
+        </div>
+        <!-- Agregar nuevo -->
+        <div style="background:#0f1117; border-radius:10px; padding:14px; margin-bottom:16px;">
+            <div style="font-size:11px; color:#f7c948; font-weight:700; margin-bottom:10px;">+ NUEVO CONTACTO</div>
+            <div style="display:grid; gap:8px;">
+                <input class="modal-input" id="dir-alias" type="text" placeholder="Alias Binance (ej: kene1225)" style="font-size:13px;">
+                <input class="modal-input" id="dir-cedula" type="text" maxlength="13" placeholder="Cédula / RUC (10 o 13 dígitos)"
+                    oninput="this.value=this.value.replace(/\D/g,'')" style="font-size:13px;">
+                <input class="modal-input" id="dir-nombre" type="text" placeholder="Nombre completo"
+                    oninput="this.value=this.value.toUpperCase()" style="font-size:13px;">
+                <button onclick="guardarContacto()"
+                    style="background:#f7c948; color:#0f1117; border:none; border-radius:8px; padding:10px; font-size:12px; font-weight:800; cursor:pointer;">
+                    GUARDAR CONTACTO
+                </button>
+            </div>
+        </div>
+        <!-- Lista -->
+        <div id="lista-directorio" style="max-height:300px; overflow-y:auto;"></div>
+        <button class="btn-xml btn-close" onclick="cerrarDirectorio()" style="margin-top:12px; width:100%;">✕ Cerrar</button>
+    </div>
+</div>
+
 <script>
 /* ══════════════════════════════
    DATOS EMISOR — skill_empresa_sri
@@ -342,14 +434,21 @@ const EMISOR = {
    Cada usuario tiene su propio historial
    key: arbitraje_historial_v1_NOMBRE
 ══════════════════════════════ */
-const APP_VERSION    = 'v2.5';
+const APP_VERSION    = 'v3.0';
 const LS_USUARIO     = 'arbitraje_usuario_activo';
 const LS_TODOS       = 'arbitraje_usuarios_lista';
+const LS_DIRECTORIO  = 'arbitraje_directorio_v1';
 const COMISION       = 0.00038;
 
-let usuarioActivo = '';
-let historial     = [];
-let ultimoRes     = null;
+let usuarioActivo  = '';
+let historial      = [];
+let ultimoRes      = null;
+let ordenesB       = [];   // órdenes cargadas del CSV Binance
+let ordenesFiltr   = [];   // órdenes filtradas actualmente
+let directorio     = {};   // { alias: { cedula, nombre } }
+
+// Cargar directorio global (compartido entre usuarios del mismo dispositivo)
+try { directorio = JSON.parse(localStorage.getItem(LS_DIRECTORIO) || '{}'); } catch(e) { directorio = {}; }
 
 const fmt    = (n, dec=2) => isNaN(n) ? '-' : Number(n).toLocaleString('es-AR', {minimumFractionDigits:dec, maximumFractionDigits:dec});
 const fmtUSD = n => `U$D ${fmt(n)}`;
@@ -698,6 +797,12 @@ function abrirModalXML(idxPantalla) {
 
     document.getElementById('xml-cedula').value = '';
     document.getElementById('xml-nombre').value = '';
+
+    // Autocompletar desde directorio si la nota tiene alias de Binance
+    if (opXML.nota) {
+        const matchAlias = opXML.nota.match(/·\s*(.+)$/);
+        if (matchAlias) autocompletarDesdeDirectorio(matchAlias[1].trim());
+    }
     document.getElementById('xml-concepto').value = 'SERVICIO DE INTERMEDIACION Y COMISION POR CAMBIO DE DIVISAS DIGITALES';
     document.getElementById('xml-preview').style.display = 'none';
     document.getElementById('xml-preview-label').style.display = 'none';
@@ -1046,6 +1151,275 @@ function exportarExcel() {
     // Nombre archivo incluye usuario — cada uno tiene el suyo
     const nombreArchivo = `arbitraje_cripto_${usuarioActivo.replace(/\s+/g,'_')}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
+}
+
+/* ══════════════════════════════
+   PANEL BINANCE P2P — Importación CSV
+══════════════════════════════ */
+function cargarCSVBinance(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const procesarTexto = (texto) => {
+        const lineas = texto.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+        const headers = lineas[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+        ordenesB = lineas.slice(1).map(linea => {
+            // Parsear CSV respetando comas dentro de comillas
+            const vals = [];
+            let cur = '', inQ = false;
+            for (const ch of linea) {
+                if (ch === '"') { inQ = !inQ; }
+                else if (ch === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+                else cur += ch;
+            }
+            vals.push(cur.trim());
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = vals[i] || '');
+            return obj;
+        }).filter(o => o['Número de orden']);
+
+        filtrarOrdenes('all');
+        document.getElementById('binance-filtros').style.display = 'block';
+    };
+
+    if (file.name.endsWith('.zip')) {
+        // Leer ZIP con FileReader y extraer el CSV
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                // Usar JSZip si está disponible, si no avisar
+                if (typeof JSZip !== 'undefined') {
+                    const zip = await JSZip.loadAsync(e.target.result);
+                    const csvFile = Object.values(zip.files).find(f => f.name.endsWith('.csv'));
+                    if (csvFile) {
+                        const texto = await csvFile.async('string');
+                        procesarTexto(texto);
+                    }
+                } else {
+                    // Fallback: pedir que extraigan el CSV del ZIP
+                    document.getElementById('binance-panel').innerHTML = `
+                        <div style="background:rgba(251,191,36,0.1); border:1px solid #f7c948; border-radius:8px; padding:14px; font-size:12px; color:#f7c948;">
+                            ⚠️ Para cargar el ZIP abrilo primero y cargá el archivo <strong>.csv</strong> que contiene.
+                        </div>`;
+                }
+            } catch(err) {
+                document.getElementById('binance-panel').innerHTML = `<div style="color:#f87171; font-size:12px; padding:10px;">Error al leer ZIP: ${err.message}</div>`;
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        const reader = new FileReader();
+        reader.onload = (e) => procesarTexto(e.target.result);
+        reader.readAsText(file, 'utf-8');
+    }
+    // Reset input para poder cargar el mismo archivo de nuevo
+    event.target.value = '';
+}
+
+function filtrarOrdenes(tipo) {
+    // Actualizar tabs
+    ['all','sell','buy','comp'].forEach(t => document.getElementById('tab-'+t)?.classList.remove('active'));
+    const tabMap = { all:'tab-all', Sell:'tab-sell', Buy:'tab-buy', Completed:'tab-comp' };
+    document.getElementById(tabMap[tipo] || 'tab-all')?.classList.add('active');
+
+    if (tipo === 'all')       ordenesFiltr = [...ordenesB];
+    else if (tipo === 'Completed') ordenesFiltr = ordenesB.filter(o => o['Estado'] === 'Completed');
+    else                      ordenesFiltr = ordenesB.filter(o => o['Tipo de orden'] === tipo);
+
+    const total = ordenesFiltr.length;
+    const sells = ordenesFiltr.filter(o => o['Tipo de orden'] === 'Sell' && o['Estado'] === 'Completed').length;
+    document.getElementById('binance-stats').textContent =
+        `${total} órdenes · ${sells} ventas completadas`;
+
+    renderOrdenes();
+}
+
+function renderOrdenes() {
+    const panel = document.getElementById('binance-panel');
+    if (!ordenesFiltr.length) {
+        panel.innerHTML = '<div style="text-align:center; color:#4a5568; padding:20px; font-size:12px;">Sin órdenes para mostrar</div>';
+        return;
+    }
+
+    // Ordenar por fecha DESC (más reciente primero)
+    const sorted = [...ordenesFiltr].sort((a,b) =>
+        new Date(b['Hora de creación']) - new Date(a['Hora de creación'])
+    );
+
+    panel.innerHTML = sorted.map(o => {
+        const esSell      = o['Tipo de orden'] === 'Sell';
+        const esComplet   = o['Estado'] === 'Completed';
+        const alias       = o['Contraparte'] || '-';
+        const contacto    = directorio[alias.toLowerCase()];
+        const tieneDir    = !!contacto;
+        const fecha       = o['Hora de creación'] || '';
+        const fiat        = o['Tipo de Fiat'];
+        const precio      = parseFloat(o['Precio']) || 0;
+        const cantidad    = parseFloat(o['Cantidad']) || 0;
+        const total       = parseFloat(o['Precio total']) || 0;
+        const comCr       = parseFloat(o['Comisión del Creador']) || 0;
+        const comTom      = parseFloat(o['Comisión del tomador']) || 0;
+        const comision    = comCr || comTom;
+
+        return `<div class="orden-card ${esSell ? 'orden-sell' : 'orden-buy'}">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="font-size:11px; font-weight:700; color:${esSell?'#10b981':'#3b82f6'};">
+                            ${esSell ? '↗ VENDER' : '↙ COMPRAR'} USDT
+                        </span>
+                        <span style="font-size:10px; color:${esComplet?'#4ade80':'#f87171'};">
+                            ${esComplet ? '✅ Completada' : '⚠️ '+o['Estado']}
+                        </span>
+                        <span style="font-size:10px; color:#4a5568;">${fecha.split(' ')[0]}</span>
+                    </div>
+                    <div style="margin-top:6px; display:grid; grid-template-columns:1fr 1fr; gap:3px; font-size:11px; color:#94a3b8;">
+                        <span>💰 ${fiat}: <strong style="color:#e2e8f0;">${fmt(total)}</strong></span>
+                        <span>₿ USDT: <strong style="color:#e2e8f0;">${fmt(cantidad,2)}</strong></span>
+                        <span>💲 Precio: <strong style="color:#e2e8f0;">${precio} ${fiat}</strong></span>
+                        <span style="color:#ef4444;">Fee: ${comision} USDT</span>
+                    </div>
+                    <div style="margin-top:6px; font-size:11px;">
+                        <span style="color:#718096;">👤 </span>
+                        <span style="color:${tieneDir?'#4ade80':'#f7c948'}; font-weight:600;">${alias}</span>
+                        ${tieneDir
+                            ? `<span style="color:#4a5568; margin-left:6px;">${contacto.cedula} · ${contacto.nombre}</span>`
+                            : `<button onclick="prefillDirectorio('${alias.replace(/'/g,"\\'")}');abrirDirectorio()"
+                                style="margin-left:6px; background:none; border:1px solid #374151; color:#718096; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer;">
+                                + cédula
+                              </button>`
+                        }
+                    </div>
+                </div>
+                ${esComplet && esSell ? `
+                <button onclick="importarOrden(${JSON.stringify(o).replace(/"/g,'&quot;')})"
+                    style="background:#1d4ed8; color:#fff; border:none; border-radius:7px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; align-self:center;">
+                    ↓ Importar
+                </button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function importarOrden(orden) {
+    // Rellenar calculadora con los datos de la orden de venta
+    // orden es una Sell completada — precargamos lo que tenemos
+    const cantidad = parseFloat(orden['Cantidad']) || 0;
+    const precio   = parseFloat(orden['Precio'])   || 0;
+    const comision = parseFloat(orden['Comisión del tomador']) || parseFloat(orden['Comisión del Creador']) || 0;
+    const fecha    = orden['Hora de creación'] || '';
+
+    // Precargar fecha
+    if (fecha) {
+        const fechaDate = new Date(fecha);
+        fechaDate.setMinutes(fechaDate.getMinutes() - fechaDate.getTimezoneOffset());
+        document.getElementById('fecha-op').value = fechaDate.toISOString().slice(0,16);
+    }
+
+    // Paso 2: precio de venta en ARS
+    if (orden['Tipo de Fiat'] === 'ARS') {
+        document.getElementById('precio-venta-ars').value = precio;
+    }
+
+    // Nota con alias y número de orden
+    const alias = orden['Contraparte'] || '';
+    document.getElementById('nota').value = `Binance #${orden['Número de orden']?.slice(-8)} · ${alias}`;
+
+    // Si tenemos comisión real, marcarla para que se use
+    // (el usuario va a ingresar el precio de compra en paso 1)
+    if (comision > 0) {
+        // Mostrar el campo y precargarlo
+        document.getElementById('res-paso2').style.display = 'block';
+        const inpCV = document.getElementById('comision-venta');
+        inpCV.value = comision.toFixed(5);
+        inpCV.dataset.manual = '1';
+    }
+
+    // Scrollear a la calculadora
+    document.getElementById('fecha-op').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Mostrar aviso
+    alert(`✅ Orden importada.\n\nFalta completar:\n① Precio de compra USDT (USD)\n③ Tipo de cambio ARS→USD\n\nLa comisión de venta (${comision} USDT) ya está precargada.`);
+}
+
+/* ══════════════════════════════
+   DIRECTORIO DE CONTRAPARTES
+   alias Binance → cédula + nombre
+══════════════════════════════ */
+function abrirDirectorio() {
+    renderDirectorio();
+    document.getElementById('modal-directorio').classList.add('open');
+}
+
+function cerrarDirectorio() {
+    document.getElementById('modal-directorio').classList.remove('open');
+}
+
+function prefillDirectorio(alias) {
+    document.getElementById('dir-alias').value = alias;
+    document.getElementById('dir-cedula').value = '';
+    document.getElementById('dir-nombre').value = '';
+}
+
+function guardarContacto() {
+    const alias  = document.getElementById('dir-alias').value.trim().toLowerCase();
+    const cedula = document.getElementById('dir-cedula').value.trim();
+    const nombre = document.getElementById('dir-nombre').value.trim().toUpperCase();
+
+    if (!alias || !cedula || !nombre) { alert('Completá todos los campos'); return; }
+    if (cedula.length !== 10 && cedula.length !== 13) { alert('Cédula debe tener 10 o 13 dígitos'); return; }
+
+    directorio[alias] = { cedula, nombre };
+    localStorage.setItem(LS_DIRECTORIO, JSON.stringify(directorio));
+
+    document.getElementById('dir-alias').value = '';
+    document.getElementById('dir-cedula').value = '';
+    document.getElementById('dir-nombre').value = '';
+
+    renderDirectorio();
+    // Refrescar panel Binance para mostrar los datos
+    if (ordenesFiltr.length) renderOrdenes();
+}
+
+function eliminarContacto(alias) {
+    delete directorio[alias];
+    localStorage.setItem(LS_DIRECTORIO, JSON.stringify(directorio));
+    renderDirectorio();
+    if (ordenesFiltr.length) renderOrdenes();
+}
+
+function renderDirectorio() {
+    const div   = document.getElementById('lista-directorio');
+    const keys  = Object.keys(directorio);
+    if (!keys.length) {
+        div.innerHTML = '<div style="text-align:center; color:#4a5568; padding:16px; font-size:12px;">Sin contactos guardados</div>';
+        return;
+    }
+    div.innerHTML = keys.sort().map(alias => {
+        const c = directorio[alias];
+        return `<div style="background:#0f1117; border:1px solid #2d3748; border-radius:8px; padding:10px 12px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="font-size:12px; font-weight:700; color:#f7c948;">${alias}</div>
+                <div style="font-size:11px; color:#94a3b8; margin-top:2px;">${c.cedula} · ${c.nombre}</div>
+            </div>
+            <button onclick="eliminarContacto('${alias}')"
+                style="background:none; border:1px solid #374151; color:#4a5568; border-radius:6px; padding:4px 8px; font-size:11px; cursor:pointer;">
+                ✕
+            </button>
+        </div>`;
+    }).join('');
+}
+
+// Autocompletar cédula/nombre en el modal de factura si el alias está en el directorio
+function autocompletarDesdeDirectorio(alias) {
+    if (!alias) return;
+    const contacto = directorio[alias.toLowerCase()];
+    if (contacto) {
+        const inpCed = document.getElementById('xml-cedula');
+        const inpNom = document.getElementById('xml-nombre');
+        if (!inpCed.value) inpCed.value = contacto.cedula;
+        if (!inpNom.value) inpNom.value = contacto.nombre;
+    }
 }
 
 /* ══════════════════════════════
