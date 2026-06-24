@@ -1423,61 +1423,56 @@ function vincularYImportar(compraJson, ventaJson) {
 
     document.getElementById('modal-vincular')?.remove();
 
-    const feeCompra  = parseFloat(compra['Comisión del tomador']||compra['Comisión del Creador']||0);
-    const montoUSD   = parseFloat(compra['Precio total']) || 0;
-    const precCompra = parseFloat(compra['Precio'])       || 0;
-    const feeVenta   = parseFloat(venta['Comisión del tomador']||venta['Comisión del Creador']||0);
-    const precVenta  = parseFloat(venta['Precio'])        || 0;
-    const totalVenta = parseFloat(venta['Precio total'])  || 0;
-    const fiatVenta  = venta['Tipo de Fiat'];             // 'ARS' o 'USD'
-    const fechaVenta = venta['Hora de creación'] || '';
-    const aliasVenta = venta['Contraparte'] || '';
-    const nroVenta   = venta['Número de orden']?.slice(-8) || '';
-    const nroCompra  = compra['Número de orden']?.slice(-8) || '';
+    const precCompraUSD = parseFloat(compra['Precio'])        || 0; // ej: 0.999 USD/USDT
+    const feeCompra     = parseFloat(compra['Comisión del tomador']||compra['Comisión del Creador']||0);
 
-    // ── Paso 1: compra ──
-    document.getElementById('monto-usd').value     = montoUSD;
-    document.getElementById('precio-compra').value = precCompra;
-    if (feeCompra > 0) {
+    const cantVenta     = parseFloat(venta['Cantidad'])        || 0; // USDT vendidos (ej: 39.48)
+    const precVenta     = parseFloat(venta['Precio'])          || 0; // precio unitario (ARS o USD)
+    const totalVenta    = parseFloat(venta['Precio total'])    || 0; // importe total recibido
+    const feeVenta      = parseFloat(venta['Comisión del tomador']||venta['Comisión del Creador']||0);
+    const fiatVenta     = venta['Tipo de Fiat'];               // 'ARS' o 'USD'
+    const fechaVenta    = venta['Hora de creación'] || '';
+    const aliasVenta    = venta['Contraparte'] || '';
+    const nroVenta      = venta['Número de orden']?.slice(-8) || '';
+    const nroCompra     = compra['Número de orden']?.slice(-8) || '';
+
+    // ── Costo real de los USDT vendidos ──
+    // ¿Cuánto USD costó comprar la cantidad que se vendió?
+    // montoUSD = cantVenta × precioCompra (costo proporcional de esa porción)
+    const montoUSD = cantVenta * precCompraUSD;
+
+    // ── Precargar calculadora ──
+    document.getElementById('monto-usd').value     = montoUSD.toFixed(2);
+    document.getElementById('precio-compra').value = precCompraUSD;
+
+    // Comisión compra proporcional a los USDT vendidos
+    // (no toda la comisión de la compra, solo la parte que corresponde)
+    const cantCompraTotal = parseFloat(compra['Cantidad']) || cantVenta;
+    const propVenta = cantCompraTotal > 0 ? cantVenta / cantCompraTotal : 1;
+    const feeCompraProp = feeCompra * propVenta;
+    if (feeCompraProp > 0) {
         const inpCC = document.getElementById('comision-compra');
-        inpCC.value = feeCompra.toFixed(5);
+        inpCC.value = feeCompraProp.toFixed(5);
         inpCC.dataset.manual = '1';
     }
 
-    // ── Paso 2: venta ──
+    // Comisión venta real de Binance
+    if (feeVenta > 0) {
+        const inpCV = document.getElementById('comision-venta');
+        inpCV.value = feeVenta.toFixed(5);
+        inpCV.dataset.manual = '1';
+    }
+
+    // ── Paso 2 según fiat ──
     if (fiatVenta === 'ARS') {
-        // Venta normal en pesos → precio ARS, falta tipo de cambio
         document.getElementById('precio-venta-ars').value = precVenta;
-        if (feeVenta > 0) {
-            const inpCV = document.getElementById('comision-venta');
-            inpCV.value = feeVenta.toFixed(5);
-            inpCV.dataset.manual = '1';
-        }
     } else {
-        // Venta en USD → la ganancia es directamente totalVenta - montoUSD
-        // Precargamos precio venta ARS = 1 y tipo cambio = 1 como bypass
-        // y usamos el campo tipo-cambio para que calcular() funcione
-        // En realidad: usdRecuperados = totalVenta, ganancia = totalVenta - montoUSD
-        // Truco: precio-venta-ars = totalVenta/usdtNetos * tipoCambio
-        // Más simple: guardar como operación directa con ganancia conocida
-        // → precargamos precio-venta-ars vacío y tipo-cambio = 1
-        // y avisamos que es venta USD
-        document.getElementById('precio-venta-ars').value = '';
-        // guardamos la ganancia real para que el usuario la vea
-        const gananciaUSD = totalVenta - montoUSD;
-        // Usamos tipo-cambio = 1 y precio-venta-ars = totalVenta (en "ARS" ficticios)
-        // para que la calculadora muestre el resultado correcto
-        // usdtNetos ≈ cantCompra - feeCompra
-        const usdtNetos = (parseFloat(compra['Cantidad'])||0) - feeCompra;
+        // Venta en USD: tipo-cambio=1, precio-venta-ars = totalVenta/usdtNetos
+        const usdtNetos = cantVenta - feeVenta;
         if (usdtNetos > 0) {
             document.getElementById('precio-venta-ars').value = (totalVenta / usdtNetos).toFixed(6);
         }
         document.getElementById('tipo-cambio').value = '1';
-        if (feeVenta > 0) {
-            const inpCV = document.getElementById('comision-venta');
-            inpCV.value = feeVenta.toFixed(5);
-            inpCV.dataset.manual = '1';
-        }
     }
 
     // ── Fecha ──
@@ -1488,27 +1483,20 @@ function vincularYImportar(compraJson, ventaJson) {
     }
 
     // ── Nota ──
-    const tipoVenta = fiatVenta === 'USD' ? '[Venta USD]' : '[Venta ARS]';
+    const tipoTag = fiatVenta === 'USD' ? '[Venta USD]' : '[Venta ARS]';
     document.getElementById('nota').value =
-        `${tipoVenta} Compra #${nroCompra} → Venta #${nroVenta} · ${aliasVenta}`;
+        `${tipoTag} Compra #${nroCompra} → Venta #${nroVenta} · ${aliasVenta}`;
 
     calcular();
     document.getElementById('fecha-op').scrollIntoView({ behavior:'smooth', block:'start' });
 
     setTimeout(() => {
         if (fiatVenta === 'ARS') {
-            // Resaltar tipo de cambio que falta
             const tc = document.getElementById('tipo-cambio');
             tc.focus();
             tc.style.border = '2px solid #f7c948';
+            setTimeout(() => tc.style.border = '', 3000);
         }
-        // Destacar resultado para que lo vea
-        const res = document.getElementById('resultado');
-        if (res) res.style.boxShadow = '0 0 0 2px #f7c948';
-        setTimeout(() => {
-            document.getElementById('tipo-cambio').style.border = '';
-            if (res) res.style.boxShadow = '';
-        }, 3000);
     }, 600);
 }
 
