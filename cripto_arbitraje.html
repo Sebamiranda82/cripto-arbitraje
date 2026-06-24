@@ -288,7 +288,6 @@
                 <button onclick="filtrarOrdenes('all')"    class="tab-btn active" id="tab-all">Todas</button>
                 <button onclick="filtrarOrdenes('Sell')"   class="tab-btn" id="tab-sell">Ventas</button>
                 <button onclick="filtrarOrdenes('Buy')"    class="tab-btn" id="tab-buy">Compras</button>
-                <button onclick="filtrarOrdenes('Completed')" class="tab-btn" id="tab-comp">Completadas</button>
             </div>
             <div style="font-size:11px; color:#4a5568;" id="binance-stats"></div>
         </div>
@@ -1222,9 +1221,9 @@ function filtrarOrdenes(tipo) {
     const tabMap = { all:'tab-all', Sell:'tab-sell', Buy:'tab-buy', Completed:'tab-comp' };
     document.getElementById(tabMap[tipo] || 'tab-all')?.classList.add('active');
 
-    if (tipo === 'all')       ordenesFiltr = [...ordenesB];
+    if (tipo === 'all')       ordenesFiltr = ordenesB.filter(o => o['Estado'] === 'Completed');
     else if (tipo === 'Completed') ordenesFiltr = ordenesB.filter(o => o['Estado'] === 'Completed');
-    else                      ordenesFiltr = ordenesB.filter(o => o['Tipo de orden'] === tipo);
+    else                      ordenesFiltr = ordenesB.filter(o => o['Tipo de orden'] === tipo && o['Estado'] === 'Completed');
 
     const total = ordenesFiltr.length;
     const sells = ordenesFiltr.filter(o => o['Tipo de orden'] === 'Sell' && o['Estado'] === 'Completed').length;
