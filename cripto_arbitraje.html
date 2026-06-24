@@ -1426,7 +1426,7 @@ function vincularYImportar(compraJson, ventaJson) {
     const precCompraUSD = parseFloat(compra['Precio'])        || 0; // ej: 0.999 USD/USDT
     const feeCompra     = parseFloat(compra['Comisión del tomador']||compra['Comisión del Creador']||0);
 
-    const cantVenta     = parseFloat(venta['Cantidad'])        || 0; // USDT vendidos (ej: 39.48)
+    const cantVenta     = parseFloat(venta['Cantidad'])        || 0; // USDT brutos salidos del wallet (ej: 39.61)
     const precVenta     = parseFloat(venta['Precio'])          || 0; // precio unitario (ARS o USD)
     const totalVenta    = parseFloat(venta['Precio total'])    || 0; // importe total recibido
     const feeVenta      = parseFloat(venta['Comisión del tomador']||venta['Comisión del Creador']||0);
@@ -1471,10 +1471,9 @@ function vincularYImportar(compraJson, ventaJson) {
     if (fiatVenta === 'ARS') {
         document.getElementById('precio-venta-ars').value = precVenta;
     } else {
-        // Venta en USD: tipo-cambio=1, precio-venta-ars = totalVenta/usdtNetos
-        const usdtNetos = cantVenta - feeVenta;
-        if (usdtNetos > 0) {
-            document.getElementById('precio-venta-ars').value = (totalVenta / usdtNetos).toFixed(6);
+        // Venta en USD: tipo-cambio=1, precio-venta-ars = totalVenta/cantVenta
+        if (cantVenta > 0) {
+            document.getElementById('precio-venta-ars').value = (totalVenta / cantVenta).toFixed(6);
         }
         document.getElementById('tipo-cambio').value = '1';
     }
