@@ -303,9 +303,14 @@
     <div id="seccion-historial" style="display:none; background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">HISTORIAL</div>
-            <button onclick="exportarExcel()" style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer;">
-                ⬇ EXPORTAR EXCEL
-            </button>
+            <div style="display:flex; gap:8px;">
+                <button onclick="limpiarHistorial()" style="background:none; border:1px solid #374151; color:#4a5568; border-radius:8px; padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer;">
+                    🗑 Limpiar
+                </button>
+                <button onclick="exportarExcel()" style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer;">
+                    ⬇ EXPORTAR EXCEL
+                </button>
+            </div>
         </div>
         <div id="lista-historial"></div>
     </div>
@@ -695,6 +700,13 @@ function registrar() {
     ocultarPasos();
     ultimoRes = null;
     actualizarBoton();
+    renderHistorial();
+}
+
+function limpiarHistorial() {
+    if (!confirm(`¿Borrar todo el historial de ${usuarioActivo}?\nEsta acción no se puede deshacer.`)) return;
+    historial = [];
+    guardarHistorialUsuario();
     renderHistorial();
 }
 
