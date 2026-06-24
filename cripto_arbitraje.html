@@ -1316,12 +1316,13 @@ function mostrarComprasRelacionadas(venta) {
     const fechaVenta = new Date(venta['Hora de creación']);
     const compras = ordenesB.filter(o =>
         o['Estado'] === 'Completed' &&
-        o['Tipo de orden'] === 'Buy'
+        o['Tipo de orden'] === 'Buy' &&
+        new Date(o['Hora de creación']) <= fechaVenta  // solo compras anteriores o del mismo momento
     ).sort((a,b) => {
-        // Ordenar por proximidad de fecha a la venta
+        // Ordenar por proximidad de fecha a la venta (más cercana primero)
         return Math.abs(new Date(a['Hora de creación']) - fechaVenta) -
                Math.abs(new Date(b['Hora de creación']) - fechaVenta);
-    }).slice(0, 10); // mostrar las 10 más cercanas
+    }).slice(0, 10);
 
     const cantVenta   = parseFloat(venta['Cantidad']) || 0;
     const precioVenta = parseFloat(venta['Precio'])   || 0;
