@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitraje Cripto - ANUAR PROYECTOS</title>
+    <!-- v2.5 — Multi-usuario localStorage · Excel por usuario · versión visible en header -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', 'Segoe UI', sans-serif; }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .input-field {
+            background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px;
+            padding: 10px 14px; color: #e2e8f0; font-size: 15px; width: 100%; outline: none;
+        }
+        .input-field:focus { border-color: #4a6fa5; }
+        .step-box { background: #0f1117; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+        .step-blue  { border-left: 3px solid #3b82f6; }
+        .step-green { border-left: 3px solid #10b981; }
+        .step-amber { border-left: 3px solid #f59e0b; }
+        .label-sm { font-size: 11px; color: #94a3b8; display: block; margin-bottom: 6px; }
+        .result-row { font-size: 12px; margin-top: 10px; }
+        #btn-registrar {
+            width: 100%; padding: 14px 0; border: none; border-radius: 10px;
+            font-size: 14px; font-weight: 800; letter-spacing: 1px; cursor: pointer;
+            margin-top: 16px; transition: background 0.2s;
+        }
+        .historial-item {
+            background: #0f1117; border: 1px solid #2d3748; border-radius: 10px;
+            padding: 14px; display: flex; justify-content: space-between;
+            align-items: center; gap: 12px; margin-bottom: 10px;
+        }
+        .badge { background: #1a2744; border: 1px solid #2d4a8a; border-radius: 8px; padding: 6px 14px; font-size: 11px; color: #60a5fa; }
+
+        /* ── Modal XML ── */
+        #modal-xml {
+            display: none; position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+        }
+        #modal-xml.open { display: flex; }
+        .modal-box {
+            background: #1a1f2e; border: 1px solid #2d3748; border-radius: 16px;
+            padding: 28px; width: 95%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+        }
+        .modal-title { font-size: 14px; font-weight: 800; color: #f7c948; letter-spacing: 1px; margin-bottom: 20px; }
+        .xml-preview {
+            background: #0f1117; border: 1px solid #2d3748; border-radius: 8px;
+            padding: 14px; font-size: 11px; color: #94a3b8; font-family: monospace;
+            white-space: pre-wrap; word-break: break-all; max-height: 280px; overflow-y: auto;
+            margin-top: 16px;
+        }
+        .btn-xml {
+            padding: 6px 12px; border-radius: 7px; font-size: 11px; font-weight: 700;
+            cursor: pointer; border: none; transition: opacity 0.15s;
+        }
+        .btn-xml:hover { opacity: 0.85; }
+        .btn-sri { background: #1d4ed8; color: #fff; }
+        .btn-dl  { background: #166534; color: #4ade80; }
+        .btn-close { background: #374151; color: #e2e8f0; }
+
+        /* Input cédula en modal */
+        .modal-input {
+            background: #0f1117; border: 1px solid #374151; border-radius: 8px;
+            padding: 10px 14px; color: #e2e8f0; font-size: 14px; width: 100%; outline: none;
+        }
+        .modal-input:focus { border-color: #4a6fa5; }
+        /* Modal usuario */
+        #modal-usuario {
+            display: none; position: fixed; inset: 0; z-index: 99999;
+            background: #0f1117; align-items: center; justify-content: center;
+        }
+        #modal-usuario.open { display: flex; }
+        .usuario-box {
+            background: #1a1f2e; border: 1px solid #2d3748; border-radius: 20px;
+            padding: 36px 28px; width: 92%; max-width: 400px; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<!-- MODAL BIENVENIDA / USUARIO -->
+<div id="modal-usuario">
+    <div class="usuario-box">
+        <div style="font-size:36px; margin-bottom:16px;">₿</div>
+        <div style="font-size:22px; font-weight:800; color:#f7c948; margin-bottom:6px;">ARBITRAJE CRIPTO</div>
+        <div style="font-size:12px; color:#718096; letter-spacing:2px; margin-bottom:28px;">ANUAR PROYECTOS · v2.5</div>
+        <div style="font-size:13px; color:#94a3b8; margin-bottom:16px;">¿Con qué nombre querés registrarte?</div>
+        <input id="input-usuario" class="input-field" type="text" maxlength="30"
+            placeholder="Tu nombre o apodo"
+            style="text-align:center; font-size:16px; margin-bottom:16px;"
+            onkeydown="if(event.key==='Enter') confirmarUsuario()">
+        <button onclick="confirmarUsuario()"
+            style="width:100%; padding:14px; background:#f7c948; color:#0f1117; border:none; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer; letter-spacing:1px;">
+            ENTRAR
+        </button>
+        <div id="lista-usuarios" style="margin-top:20px;"></div>
+    </div>
+</div>
+
+<!-- HEADER -->
+<div style="background: linear-gradient(135deg,#1a1f2e 0%,#16213e 100%); border-bottom: 1px solid #2d3748; padding: 16px 24px;">
+    <div style="max-width:800px; margin:0 auto;">
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-size:26px;">₿</div>
+            <div>
+                <div style="font-size:19px; font-weight:700; color:#f7c948; letter-spacing:-0.5px;">ARBITRAJE CRIPTO</div>
+                <div style="font-size:10px; color:#4a5568; letter-spacing:1px;">v2.5 · ANUAR PROYECTOS</div>
+            </div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+                <div class="badge">Comisión: <strong>0.038%</strong></div>
+            </div>
+        </div>
+        <!-- Usuario activo -->
+        <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between;">
+            <div style="font-size:12px; color:#94a3b8;">
+                👤 <span id="header-usuario" style="color:#e2e8f0; font-weight:700;"></span>
+            </div>
+            <button onclick="cambiarUsuario()"
+                style="background:none; border:1px solid #2d3748; color:#718096; border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer;">
+                Cambiar usuario
+            </button>
+        </div>
+    </div>
+</div>
+
+<div style="max-width:800px; margin:0 auto; padding:24px 16px;">
+
+    <!-- CALCULADORA -->
+    <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:24px; margin-bottom:20px;">
+        <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px; margin-bottom:20px;">NUEVA OPERACIÓN</div>
+
+        <!-- FECHA MANUAL -->
+        <label style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+            <span class="label-sm">Fecha de la operación <span style="color:#4a5568;">(podés cargar operaciones pasadas)</span></span>
+            <input class="input-field" id="fecha-op" type="datetime-local" style="font-size:13px;">
+        </label>
+
+        <!-- PASO 1 -->
+        <div class="step-box step-blue">
+            <div style="font-size:11px; color:#3b82f6; font-weight:700; margin-bottom:12px; letter-spacing:1px;">① COMPRA EN BINANCE (USD → USDT)</div>
+            <label><span class="label-sm">USD a invertir</span>
+                <input class="input-field" id="monto-usd" type="number" placeholder="Ej: 500" oninput="calcular()">
+            </label>
+            <label style="margin-top:12px; display:block;"><span class="label-sm">Precio USDT en USD</span>
+                <input class="input-field" id="precio-compra" type="number" placeholder="Ej: 1.004" oninput="calcular()">
+            </label>
+            <div class="result-row" id="res-paso1" style="display:none;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
+                    <span style="color:#60a5fa; font-size:12px;">USDT netos: <strong id="usdt-netos">-</strong></span>
+                    <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                        <span style="color:#ef4444; font-size:11px;">Comisión compra:</span>
+                        <input id="comision-compra" type="number" step="0.00001"
+                            style="background:#1a0a0a; border:1px solid #7f1d1d; border-radius:6px; padding:4px 8px; color:#f87171; font-size:12px; font-weight:700; width:90px; outline:none; text-align:right;"
+                            oninput="recalcularDesdeComision()"
+                            title="Editá este valor si Binance cobró distinto">
+                        <span style="color:#ef4444; font-size:11px;">USDT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 2 -->
+        <div class="step-box step-green">
+            <div style="font-size:11px; color:#10b981; font-weight:700; margin-bottom:12px; letter-spacing:1px;">② VENTA EN BINANCE (USDT → ARS)</div>
+            <label><span class="label-sm">Precio USDT en ARS</span>
+                <input class="input-field" id="precio-venta-ars" type="number" placeholder="Ej: 1520" oninput="calcular()">
+            </label>
+            <div class="result-row" id="res-paso2" style="display:none;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
+                    <span style="color:#10b981; font-size:12px;">ARS obtenidos: <strong id="ars-obtenidos">-</strong></span>
+                    <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                        <span style="color:#ef4444; font-size:11px;">Comisión venta:</span>
+                        <input id="comision-venta" type="number" step="0.00001"
+                            style="background:#1a0a0a; border:1px solid #7f1d1d; border-radius:6px; padding:4px 8px; color:#f87171; font-size:12px; font-weight:700; width:90px; outline:none; text-align:right;"
+                            oninput="recalcularDesdeComision()"
+                            title="Editá este valor si Binance cobró distinto">
+                        <span style="color:#ef4444; font-size:11px;">USDT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 3 -->
+        <div class="step-box step-amber">
+            <div style="font-size:11px; color:#f59e0b; font-weight:700; margin-bottom:12px; letter-spacing:1px;">③ VENTA FUERA DE BINANCE (ARS → USD)</div>
+            <label><span class="label-sm">Tipo de cambio ARS por 1 USD</span>
+                <input class="input-field" id="tipo-cambio" type="number" placeholder="Ej: 1480" oninput="calcular()">
+            </label>
+            <div class="result-row" id="res-paso3" style="color:#f59e0b; display:none;">
+                USD recuperados: <strong id="usd-recuperados">-</strong>
+            </div>
+            <!-- BLUE -->
+            <div style="margin-top:12px; padding-top:10px; border-top:1px solid #2d3748; display:flex; gap:16px; align-items:center;">
+                <span style="font-size:10px; color:#718096;">DÓLAR BLUE HOY:</span>
+                <span style="font-size:10px; color:#94a3b8;">Compra: <strong id="blue-compra" style="color:#60a5fa;">cargando...</strong></span>
+                <span style="font-size:10px; color:#94a3b8;">Venta: <strong id="blue-venta" style="color:#f59e0b;">...</strong></span>
+            </div>
+        </div>
+
+        <!-- NOTA -->
+        <label style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
+            <span class="label-sm">Nota (opcional)</span>
+            <input class="input-field" id="nota" type="text" placeholder="Ej: op. matutina, cliente X..." style="font-size:13px;">
+        </label>
+
+        <!-- RESULTADO GANANCIA -->
+        <div id="resultado" style="display:none; margin-top:20px; border-radius:12px; padding:16px; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="font-size:11px; color:#94a3b8; margin-bottom:4px;">GANANCIA NETA (a facturar)</div>
+                <div id="ganancia-display" style="font-size:28px; font-weight:800;"></div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:11px; color:#94a3b8; margin-bottom:4px;">RENTABILIDAD</div>
+                <div id="rentabilidad-display" style="font-size:22px; font-weight:700;"></div>
+            </div>
+        </div>
+
+        <button id="btn-registrar" onclick="registrar()" disabled style="background:#2d3748; color:#4a5568;">
+            ✚ REGISTRAR OPERACIÓN
+        </button>
+    </div>
+
+    <!-- TOTALES -->
+    <div id="totales" style="display:none; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
+        <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:12px; padding:16px; text-align:center;">
+            <div style="font-size:10px; color:#94a3b8; margin-bottom:6px; letter-spacing:1px;">OPERACIONES</div>
+            <div id="total-ops" style="font-size:18px; font-weight:700; color:#60a5fa;">0</div>
+        </div>
+        <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:12px; padding:16px; text-align:center;">
+            <div style="font-size:10px; color:#94a3b8; margin-bottom:6px; letter-spacing:1px;">USD INVERTIDOS</div>
+            <div id="total-invertido" style="font-size:18px; font-weight:700; color:#94a3b8;">-</div>
+        </div>
+        <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:12px; padding:16px; text-align:center;">
+            <div style="font-size:10px; color:#94a3b8; margin-bottom:6px; letter-spacing:1px;">GANANCIA TOTAL</div>
+            <div id="total-ganancia" style="font-size:18px; font-weight:700;">-</div>
+        </div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div id="seccion-historial" style="display:none; background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">HISTORIAL</div>
+            <button onclick="exportarExcel()" style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer;">
+                ⬇ EXPORTAR EXCEL
+            </button>
+        </div>
+        <div id="lista-historial"></div>
+    </div>
+
+    <div id="empty-msg" style="text-align:center; color:#4a5568; padding:40px; font-size:13px;">
+        Completá los campos y registrá tu primera operación
+    </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MODAL FACTURA ELECTRÓNICA SRI
+     Reutiliza servidor cfb-servidor.onrender.com
+══════════════════════════════════════════════ -->
+<div id="modal-xml">
+    <div class="modal-box">
+        <div class="modal-title">📄 FACTURA ELECTRÓNICA · SRI ECUADOR</div>
+
+        <!-- Info operación -->
+        <div id="xml-op-info" style="background:#0f1117; border-radius:8px; padding:12px; margin-bottom:16px; font-size:12px; color:#94a3b8; line-height:1.8;"></div>
+
+        <!-- URL servidor (reutiliza el mismo que CFB) -->
+        <div style="margin-bottom:14px;">
+            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">URL SERVIDOR SRI <span style="color:#4a5568;">(mismo que CFB App)</span></label>
+            <input class="modal-input" id="xml-server-url" type="text"
+                placeholder="https://cfb-servidor.onrender.com"
+                style="font-size:12px;">
+        </div>
+
+        <!-- Datos cliente -->
+        <div style="margin-bottom:14px;">
+            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">CÉDULA / RUC DEL CLIENTE</label>
+            <input class="modal-input" id="xml-cedula" type="text" maxlength="13"
+                placeholder="Ej: 0912345678 (10 dígitos) o RUC 13 dígitos"
+                oninput="this.value=this.value.replace(/\D/g,'')">
+        </div>
+        <div style="margin-bottom:14px;">
+            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">NOMBRE / RAZÓN SOCIAL DEL CLIENTE</label>
+            <input class="modal-input" id="xml-nombre" type="text" placeholder="Ej: JUAN PEREZ GOMEZ"
+                oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <div style="margin-bottom:14px;">
+            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">
+                NÚMERO SECUENCIAL
+                <span style="color:#4a5568; font-weight:400;">(leído de CFB App · editable)</span>
+            </label>
+            <input class="modal-input" id="xml-secuencial" type="number" placeholder="Ej: 1" min="1">
+        </div>
+        <div style="margin-bottom:16px;">
+            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">CONCEPTO</label>
+            <input class="modal-input" id="xml-concepto" type="text" value="SERVICIO DE INTERMEDIACION Y COMISION POR CAMBIO DE DIVISAS DIGITALES">
+        </div>
+
+        <!-- Botones -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <button class="btn-xml btn-dl" onclick="generarYDescargarXML()">⬇ Descargar XML</button>
+            <button class="btn-xml btn-sri" id="btn-enviar-sri" onclick="enviarAlSRI()" style="display:none;">
+                🚀 Enviar al SRI
+            </button>
+            <button class="btn-xml btn-close" onclick="cerrarModal()">✕ Cancelar</button>
+        </div>
+
+        <!-- Estado SRI -->
+        <div id="sri-status" style="display:none; border-radius:8px; padding:10px 14px; font-size:12px; font-weight:600; margin-bottom:10px;"></div>
+
+        <!-- Preview XML -->
+        <div id="xml-preview-label" style="font-size:10px; color:#4a5568; margin-top:8px; display:none;">PREVIEW XML</div>
+        <div class="xml-preview" id="xml-preview" style="display:none;"></div>
+    </div>
+</div>
+
+<script>
+/* ══════════════════════════════
+   DATOS EMISOR — skill_empresa_sri
+   RIMPE Negocio Popular · Factura Electrónica
+══════════════════════════════ */
+const EMISOR = {
+    ruc:                  '0967482498001',
+    razonSocial:          'ANDRES SEBASTIAN MIRANDA',
+    nombreComercial:      'ANDRES SEBASTIAN MIRANDA',
+    regimen:              'RIMPE_NEGOCIO_POPULAR',
+    obligadoContabilidad: 'NO',
+    dirMatriz:            'CAPITAN NAJERA 4607',
+    dirEstablecimiento:   'CAPITAN NAJERA 4511 ENTRE CALLE 17 Y 18',
+    estab:                '001',
+    ptoEmi:               '002',
+    ambiente:             '1',     // 1=Pruebas · 2=Producción
+    tipoEmision:          '1',
+    codDoc:               '01',    // 01=Factura Electrónica
+};
+
+/* ══════════════════════════════
+   USUARIOS — localStorage multi-user
+   Cada usuario tiene su propio historial
+   key: arbitraje_historial_v1_NOMBRE
+══════════════════════════════ */
+const APP_VERSION    = 'v2.5';
+const LS_USUARIO     = 'arbitraje_usuario_activo';
+const LS_TODOS       = 'arbitraje_usuarios_lista';
+const COMISION       = 0.00038;
+
+let usuarioActivo = '';
+let historial     = [];
+let ultimoRes     = null;
+
+const fmt    = (n, dec=2) => isNaN(n) ? '-' : Number(n).toLocaleString('es-AR', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+const fmtUSD = n => `U$D ${fmt(n)}`;
+const fmtARS = n => `$ ${fmt(n)}`;
+
+function lsKeyHistorial(nombre) {
+    // key única por usuario, sin espacios ni caracteres raros
+    return 'arbitraje_historial_v1_' + nombre.trim().toLowerCase().replace(/\s+/g,'_');
+}
+
+function cargarHistorialUsuario(nombre) {
+    try {
+        return JSON.parse(localStorage.getItem(lsKeyHistorial(nombre)) || '[]');
+    } catch(e) { return []; }
+}
+
+function guardarHistorialUsuario() {
+    localStorage.setItem(lsKeyHistorial(usuarioActivo), JSON.stringify(historial));
+}
+
+function registrarUsuarioEnLista(nombre) {
+    let lista = [];
+    try { lista = JSON.parse(localStorage.getItem(LS_TODOS) || '[]'); } catch(e) {}
+    if (!lista.includes(nombre)) {
+        lista.push(nombre);
+        localStorage.setItem(LS_TODOS, JSON.stringify(lista));
+    }
+}
+
+function obtenerTodosUsuarios() {
+    try { return JSON.parse(localStorage.getItem(LS_TODOS) || '[]'); } catch(e) { return []; }
+}
+
+function confirmarUsuario() {
+    const nombre = document.getElementById('input-usuario').value.trim();
+    if (!nombre) return;
+    activarUsuario(nombre);
+}
+
+function activarUsuario(nombre) {
+    usuarioActivo = nombre;
+    localStorage.setItem(LS_USUARIO, nombre);
+    registrarUsuarioEnLista(nombre);
+    historial = cargarHistorialUsuario(nombre);
+    document.getElementById('header-usuario').textContent = nombre;
+    document.getElementById('modal-usuario').classList.remove('open');
+    initFecha();
+    renderHistorial();
+}
+
+function cambiarUsuario() {
+    document.getElementById('modal-usuario').classList.add('open');
+    document.getElementById('input-usuario').value = '';
+    mostrarListaUsuarios();
+}
+
+function mostrarListaUsuarios() {
+    const lista = obtenerTodosUsuarios();
+    const div   = document.getElementById('lista-usuarios');
+    if (!lista.length) { div.innerHTML = ''; return; }
+    div.innerHTML = `
+        <div style="font-size:11px; color:#4a5568; margin-bottom:10px; text-align:center;">O elegí un usuario existente:</div>
+        ${lista.map(u => `
+            <button onclick="activarUsuario('${u}')"
+                style="display:block; width:100%; margin-bottom:8px; padding:10px; background:#0f1117;
+                       border:1px solid #2d3748; border-radius:8px; color:#e2e8f0; font-size:13px;
+                       cursor:pointer; text-align:left;">
+                👤 ${u}
+                <span style="float:right; color:#4a5568; font-size:11px;">
+                    ${cargarHistorialUsuario(u).length} ops
+                </span>
+            </button>
+        `).join('')}
+    `;
+}
+
+// ── Iniciar app ──
+(function init() {
+    const guardado = localStorage.getItem(LS_USUARIO);
+    if (guardado) {
+        activarUsuario(guardado);
+    } else {
+        mostrarListaUsuarios();
+        document.getElementById('modal-usuario').classList.add('open');
+    }
+})();
+
+/* ══════════════════════════════
+   CALCULADORA
+══════════════════════════════ */
+function initFecha() {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('fecha-op').value = now.toISOString().slice(0, 16);
+}
+
+function calcular() {
+    const monto          = parseFloat(document.getElementById('monto-usd').value);
+    const precioCompra   = parseFloat(document.getElementById('precio-compra').value);
+    const precioVentaARS = parseFloat(document.getElementById('precio-venta-ars').value);
+    const tipoCambio     = parseFloat(document.getElementById('tipo-cambio').value);
+
+    const paso1ok = !isNaN(monto) && !isNaN(precioCompra) && monto > 0 && precioCompra > 0;
+    const paso2ok = paso1ok && !isNaN(precioVentaARS) && precioVentaARS > 0;
+    const paso3ok = paso2ok && !isNaN(tipoCambio) && tipoCambio > 0;
+
+    const p1  = document.getElementById('res-paso1');
+    const p2  = document.getElementById('res-paso2');
+    const p3  = document.getElementById('res-paso3');
+    const res = document.getElementById('resultado');
+
+    if (paso1ok) {
+        const usdtBrutos     = monto / precioCompra;
+        const comisionCompra = usdtBrutos * COMISION;
+        const usdtNetos      = usdtBrutos - comisionCompra;
+
+        document.getElementById('usdt-netos').textContent = fmt(usdtNetos, 5);
+        // Precargar comisión compra (editable) solo si el usuario no la tocó
+        const inpCC = document.getElementById('comision-compra');
+        if (!inpCC.dataset.manual) inpCC.value = comisionCompra.toFixed(5);
+        p1.style.display = 'block';
+
+        if (paso2ok) {
+            // Usar comisión compra real (auto o editada)
+            const comCompraReal  = parseFloat(inpCC.value) || comisionCompra;
+            // Binance redondea USDT a 2 decimales antes de calcular ARS
+            const usdtNetosReal  = Math.round((usdtBrutos - comCompraReal) * 100) / 100;
+
+            const comisionVenta  = usdtNetosReal * COMISION;  // sobre USDT, igual que compra
+            const arsBrutos      = usdtNetosReal * precioVentaARS;
+            const arsNetos       = arsBrutos - (comisionVenta * precioVentaARS);
+
+            document.getElementById('ars-obtenidos').textContent = fmtARS(arsNetos);
+            const inpCV = document.getElementById('comision-venta');
+            if (!inpCV.dataset.manual) inpCV.value = comisionVenta.toFixed(5);
+            p2.style.display = 'block';
+
+            if (paso3ok) {
+                const comVentaReal   = parseFloat(inpCV.value) || comisionVenta;
+                const arsNetosReal   = arsBrutos - (comVentaReal * precioVentaARS);
+                const usdRecuperados = arsNetosReal / tipoCambio;
+                const ganancia       = usdRecuperados - monto;
+                const rentPct        = (ganancia / monto) * 100;
+
+                document.getElementById('usd-recuperados').textContent = fmtUSD(usdRecuperados);
+                p3.style.display = 'block';
+
+                const isPos = ganancia >= 0;
+                res.style.display    = 'flex';
+                res.style.background = isPos ? 'rgba(16,185,129,0.1)' : 'rgba(248,113,113,0.1)';
+                res.style.border     = isPos ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(248,113,113,0.3)';
+                document.getElementById('ganancia-display').textContent  = (isPos?'+':'')+fmtUSD(ganancia);
+                document.getElementById('ganancia-display').style.color  = isPos ? '#4ade80' : '#f87171';
+                document.getElementById('rentabilidad-display').textContent = fmt(rentPct,3)+'%';
+                document.getElementById('rentabilidad-display').style.color = isPos ? '#4ade80' : '#f87171';
+
+                ultimoRes = {
+                    monto, precioCompra, precioVentaARS, tipoCambio,
+                    usdtNetos: usdtNetosReal,
+                    comisionCompra: comCompraReal,
+                    comisionVenta: comVentaReal,
+                    arsNetos: arsNetosReal,
+                    usdRecuperados, ganancia, rentPct
+                };
+                actualizarBoton();
+                return;
+            }
+        }
+    }
+
+    if (!paso1ok) { p1.style.display='none'; }
+    if (!paso2ok) { p2.style.display='none'; }
+    if (!paso3ok) { p3.style.display='none'; res.style.display='none'; }
+    ultimoRes = null;
+    actualizarBoton();
+}
+
+// Se llama cuando el usuario edita manualmente una comisión
+function recalcularDesdeComision() {
+    // Marcar como manual para que calcular() no la sobreescriba
+    const inpCC = document.getElementById('comision-compra');
+    const inpCV = document.getElementById('comision-venta');
+    if (document.activeElement === inpCC) inpCC.dataset.manual = '1';
+    if (document.activeElement === inpCV) inpCV.dataset.manual = '1';
+    calcular();
+}
+
+// Resetear flag manual al limpiar los campos principales
+function limpiarManual() {
+    ['comision-compra','comision-venta'].forEach(id => {
+        const el = document.getElementById(id);
+        delete el.dataset.manual;
+        el.value = '';
+    });
+}
+
+function ocultarPasos() {
+    ['res-paso1','res-paso2','res-paso3'].forEach(id => document.getElementById(id).style.display = 'none');
+    document.getElementById('resultado').style.display = 'none';
+}
+
+function actualizarBoton() {
+    const btn = document.getElementById('btn-registrar');
+    if (ultimoRes) {
+        btn.disabled = false;
+        btn.style.background = '#f7c948';
+        btn.style.color = '#0f1117';
+    } else {
+        btn.disabled = true;
+        btn.style.background = '#2d3748';
+        btn.style.color = '#4a5568';
+    }
+}
+
+function registrar() {
+    if (!ultimoRes) return;
+
+    // Tomar fecha del input (puede ser pasada o actual)
+    const fechaInput = document.getElementById('fecha-op').value;
+    const fechaDate  = fechaInput ? new Date(fechaInput) : new Date();
+    const fechaStr   = fechaDate.toLocaleString('es-AR', {
+        day:'2-digit', month:'2-digit', year:'numeric',
+        hour:'2-digit', minute:'2-digit'
+    });
+
+    const op = {
+        id:        Date.now(),
+        fechaISO:  fechaDate.toISOString(),   // para ordenar
+        fecha:     fechaStr,
+        nota:      document.getElementById('nota').value,
+        ...ultimoRes
+    };
+
+    historial.push(op);
+
+    // Ordenar por fecha ASC (más antigua primero)
+    historial.sort((a, b) => new Date(a.fechaISO) - new Date(b.fechaISO));
+
+    // Guardar en localStorage por usuario
+    guardarHistorialUsuario();
+
+    ['monto-usd','precio-compra','precio-venta-ars','tipo-cambio','nota'].forEach(id => document.getElementById(id).value = '');
+    initFecha(); // resetear fecha a ahora
+    limpiarManual();
+    ocultarPasos();
+    ultimoRes = null;
+    actualizarBoton();
+    renderHistorial();
+}
+
+function eliminar(idx) {
+    // idx es posición en el array ya ordenado ASC, pero en pantalla mostramos DESC
+    // el array pantalla es historial invertido, entonces:
+    const idxReal = historial.length - 1 - idx;
+    if (!confirm('¿Eliminar esta operación?')) return;
+    historial.splice(idxReal, 1);
+    guardarHistorialUsuario();
+    renderHistorial();
+}
+
+function renderHistorial() {
+    const lista    = document.getElementById('lista-historial');
+    const totalOps = historial.length;
+    const totalInv = historial.reduce((s,o) => s + o.monto, 0);
+    const totalGan = historial.reduce((s,o) => s + o.ganancia, 0);
+
+    if (totalOps === 0) {
+        document.getElementById('seccion-historial').style.display = 'none';
+        document.getElementById('totales').style.display = 'none';
+        document.getElementById('empty-msg').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('empty-msg').style.display = 'none';
+    document.getElementById('seccion-historial').style.display = 'block';
+    document.getElementById('totales').style.display = 'grid';
+
+    document.getElementById('total-ops').textContent = totalOps;
+    document.getElementById('total-invertido').textContent = fmtUSD(totalInv);
+    const tg = document.getElementById('total-ganancia');
+    tg.textContent = fmtUSD(totalGan);
+    tg.style.color = totalGan >= 0 ? '#4ade80' : '#f87171';
+
+    // Mostrar en pantalla: más reciente primero (DESC)
+    // El índice 'i' en pantalla → idxReal = totalOps-1-i en el array ASC
+    const enPantalla = [...historial].reverse();
+
+    lista.innerHTML = enPantalla.map((op, i) => `
+        <div class="historial-item">
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:11px; color:#718096; margin-bottom:4px;">
+                    #${historial.length - i} · ${op.fecha}
+                    ${op.xmlSeq ? `<span style="color:#f7c948; margin-left:8px;">📄 FAC ${op.xmlSeq}</span>` : ''}
+                    ${op.sriAutorizado ? `<span style="color:#4ade80; margin-left:4px;">✅ Autorizada</span>` : ''}
+                </div>
+                <div style="font-size:13px; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${fmtUSD(op.monto)} → ${fmtARS(op.arsNetos)} → ${fmtUSD(op.usdRecuperados)}
+                </div>
+                ${op.nota ? `<div style="font-size:11px; color:#94a3b8; margin-top:2px;">${op.nota}</div>` : ''}
+            </div>
+            <div style="text-align:right; flex-shrink:0;">
+                <div style="font-size:16px; font-weight:700; color:${op.ganancia >= 0 ? '#4ade80' : '#f87171'};">
+                    ${op.ganancia >= 0 ? '+' : ''}${fmtUSD(op.ganancia)}
+                </div>
+                <div style="font-size:11px; color:#94a3b8;">${fmt(op.rentPct, 3)}%</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+                <button onclick="abrirModalXML(${i})"
+                    style="background:#1d4ed8; color:#fff; border:none; border-radius:7px; padding:5px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">
+                    📄 XML SRI
+                </button>
+                <button onclick="eliminar(${i})"
+                    style="background:none; border:1px solid #374151; color:#4a5568; cursor:pointer; font-size:11px; border-radius:7px; padding:4px 10px;">
+                    ✕
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+/* ══════════════════════════════
+   MODAL XML SRI
+══════════════════════════════ */
+const LS_SRI_URL = 'cfb_sri_server_url'; // misma key que CFB App
+let _xmlGenerado = null;
+
+function abrirModalXML(idxPantalla) {
+    // pantalla es DESC, array es ASC → convertir
+    const idx = historial.length - 1 - idxPantalla;
+    opXML = historial[idx];
+    opXML._idx = idx; // guardar para actualizar después
+    const modal = document.getElementById('modal-xml');
+
+    document.getElementById('xml-op-info').innerHTML = `
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <div>📅 <strong style="color:#e2e8f0;">${opXML.fecha}</strong></div>
+            <div>💵 Invertido: <strong style="color:#60a5fa;">${fmtUSD(opXML.monto)}</strong></div>
+            <div>📄 Tipo: <strong style="color:#f7c948;">Factura Electrónica (RIMPE)</strong></div>
+            <div>✅ Comisión a facturar: <strong style="color:#4ade80;">${fmtUSD(opXML.ganancia)}</strong></div>
+        </div>
+    `;
+
+    // URL servidor — fix: evitar que aparezca "null" literal
+    const urlGuardada = localStorage.getItem(LS_SRI_URL);
+    document.getElementById('xml-server-url').value = urlGuardada || '';
+
+    document.getElementById('xml-cedula').value = '';
+    document.getElementById('xml-nombre').value = '';
+    document.getElementById('xml-concepto').value = 'SERVICIO DE INTERMEDIACION Y COMISION POR CAMBIO DE DIVISAS DIGITALES';
+    document.getElementById('xml-preview').style.display = 'none';
+    document.getElementById('xml-preview-label').style.display = 'none';
+    document.getElementById('btn-enviar-sri').style.display = 'none';
+    document.getElementById('sri-status').style.display = 'none';
+    _xmlGenerado = null;
+
+    // Secuencial: leer de CFB App primero (misma key), si no existe usar la propia
+    // cfb_seq_fact_v1 = último usado en CFB → el siguiente sería ese mismo valor
+    const seqCFB   = parseInt(localStorage.getItem('cfb_seq_fact_v1') || '0');
+    const seqPropio = parseInt(localStorage.getItem('arbitraje_seq_fact') || '0');
+    // Tomar el mayor de los dos (nunca retroceder)
+    const seqSugerido = Math.max(seqCFB, seqPropio, 1);
+    const inpSeq = document.getElementById('xml-secuencial');
+    inpSeq.value = seqSugerido;
+    inpSeq.style.border = '1px solid #4a6fa5'; // resaltar que es editable
+
+    modal.classList.add('open');
+}
+
+function setSriStatus(msg, tipo) {
+    const el = document.getElementById('sri-status');
+    el.style.display = 'block';
+    el.textContent = msg;
+    const estilos = {
+        ok:      { bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)', color: '#4ade80' },
+        error:   { bg: 'rgba(248,113,113,0.15)', border: 'rgba(248,113,113,0.4)', color: '#f87171' },
+        loading: { bg: 'rgba(96,165,250,0.15)', border: 'rgba(96,165,250,0.4)', color: '#60a5fa' },
+    };
+    const s = estilos[tipo] || estilos.loading;
+    el.style.background = s.bg;
+    el.style.border = `1px solid ${s.border}`;
+    el.style.color = s.color;
+}
+
+async function enviarAlSRI() {
+    if (!_xmlGenerado) { setSriStatus('⚠️ Primero generá/descargá el XML', 'error'); return; }
+    const url = document.getElementById('xml-server-url').value.trim().replace(/\/$/, '');
+    if (!url) { setSriStatus('⚠️ Ingresá la URL del servidor CFB', 'error'); return; }
+
+    // Guardar URL para próxima vez
+    localStorage.setItem(LS_SRI_URL, url);
+
+    setSriStatus('⏳ Enviando al SRI…', 'loading');
+    document.getElementById('btn-enviar-sri').disabled = true;
+
+    try {
+        const resp = await fetch(url + '/factura/enviar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ xml: _xmlGenerado }),
+            signal: AbortSignal.timeout(45000)
+        });
+        const data = await resp.json();
+
+        if (data.ok && data.numeroAutorizacion) {
+            setSriStatus(`✅ AUTORIZADA · Nro: ${data.numeroAutorizacion}`, 'ok');
+            if (opXML) {
+                opXML.sriAutorizado = true;
+                opXML.sriNroAut = data.numeroAutorizacion;
+                renderHistorial();
+            }
+        } else {
+            const msg = data.mensajes?.join(' · ') || data.error || 'Respuesta inesperada del SRI';
+            setSriStatus(`❌ ${msg}`, 'error');
+        }
+    } catch (e) {
+        setSriStatus(`❌ Error de conexión: ${e.message}`, 'error');
+    } finally {
+        document.getElementById('btn-enviar-sri').disabled = false;
+    }
+}
+
+function cerrarModal() {
+    document.getElementById('modal-xml').classList.remove('open');
+    opXML = null;
+}
+
+// Cerrar modal al clickear fondo
+document.getElementById('modal-xml').addEventListener('click', function(e) {
+    if (e.target === this) cerrarModal();
+});
+
+/* ══════════════════════════════
+   GENERADOR XML — FACTURA ELECTRÓNICA SRI ECUADOR
+   Comprobante: codDoc=01 (Factura)
+   Régimen: RIMPE Negocio Popular
+   IVA: 0% (código tarifa 7)
+   Norma: Ficha Técnica SRI v2.21
+══════════════════════════════ */
+function generarXML() {
+    const cedula    = document.getElementById('xml-cedula').value.trim();
+    const nombre    = document.getElementById('xml-nombre').value.trim().toUpperCase();
+    const seq       = parseInt(document.getElementById('xml-secuencial').value) || 1;
+    const concepto  = document.getElementById('xml-concepto').value.trim().toUpperCase();
+
+    if (!cedula || (cedula.length !== 10 && cedula.length !== 13)) {
+        alert('⚠️ Ingresá una cédula (10 dígitos) o RUC (13 dígitos) válido.');
+        return null;
+    }
+    if (!nombre) {
+        alert('⚠️ Ingresá el nombre del cliente.');
+        return null;
+    }
+    if (!opXML) return null;
+
+    // Determinar tipo identificación
+    const tipoId = cedula.length === 13
+        ? (cedula.endsWith('001') ? '04' : '05')  // 04=RUC, 05=pasaporte/otro
+        : '05';                                    // 05=cédula ecuatoriana
+
+    const secStr = String(seq).padStart(9, '0');
+
+    // Fecha desde la operación (dd/mm/aaaa)
+    const fechaOp  = opXML.fecha ? opXML.fecha.split(',')[0] : new Date().toLocaleDateString('es-EC');
+    const partes   = fechaOp.split('/');
+    const fechaXML = partes.length === 3
+        ? `${partes[0].padStart(2,'0')}/${partes[1].padStart(2,'0')}/${partes[2]}`
+        : new Date().toLocaleDateString('es-EC', {day:'2-digit',month:'2-digit',year:'numeric'});
+
+    // Monto: ganancia neta redondeada a 2 decimales
+    const monto    = Math.abs(opXML.ganancia).toFixed(2);
+    const montoNum = parseFloat(monto);
+
+    // Clave de acceso (49 dígitos): fechaddmmaaaa + codDoc + RUC + ambiente + estab + ptoEmi + seq + tipoEmision + digitoVerificador
+    const fechaCA = fechaXML.replace(/\//g,''); // ddmmaaaa
+    const claveBase = `${fechaCA}${EMISOR.codDoc}${EMISOR.ruc}${EMISOR.ambiente}${EMISOR.estab}${EMISOR.ptoEmi}${secStr}${EMISOR.tipoEmision}`;
+    const dv = calcularDigitoVerificador(claveBase);
+    const claveAcceso = `${claveBase}${dv}`;
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<factura id="comprobante" version="2.1.0">
+  <infoTributaria>
+    <ambiente>${EMISOR.ambiente}</ambiente>
+    <tipoEmision>${EMISOR.tipoEmision}</tipoEmision>
+    <razonSocial>${escXML(EMISOR.razonSocial)}</razonSocial>
+    <nombreComercial>${escXML(EMISOR.nombreComercial)}</nombreComercial>
+    <ruc>${EMISOR.ruc}</ruc>
+    <claveAcceso>${claveAcceso}</claveAcceso>
+    <codDoc>${EMISOR.codDoc}</codDoc>
+    <estab>${EMISOR.estab}</estab>
+    <ptoEmi>${EMISOR.ptoEmi}</ptoEmi>
+    <secuencial>${secStr}</secuencial>
+    <dirMatriz>${escXML(EMISOR.dirMatriz)}</dirMatriz>
+    <regimenMicroempresa>NEGOCIOS POPULARES</regimenMicroempresa>
+    <agenteRetencion></agenteRetencion>
+  </infoTributaria>
+  <infoFactura>
+    <fechaEmision>${fechaXML}</fechaEmision>
+    <dirEstablecimiento>${escXML(EMISOR.dirEstablecimiento)}</dirEstablecimiento>
+    <contribuyenteEspecial></contribuyenteEspecial>
+    <obligadoContabilidad>${EMISOR.obligadoContabilidad}</obligadoContabilidad>
+    <tipoIdentificacionComprador>${tipoId}</tipoIdentificacionComprador>
+    <razonSocialComprador>${escXML(nombre)}</razonSocialComprador>
+    <identificacionComprador>${cedula}</identificacionComprador>
+    <direccionComprador></direccionComprador>
+    <totalSinImpuestos>${montoNum.toFixed(2)}</totalSinImpuestos>
+    <totalDescuento>0.00</totalDescuento>
+    <totalConImpuestos>
+      <totalImpuesto>
+        <codigo>2</codigo>
+        <codigoPorcentaje>7</codigoPorcentaje>
+        <baseImponible>${montoNum.toFixed(2)}</baseImponible>
+        <valor>0.00</valor>
+      </totalImpuesto>
+    </totalConImpuestos>
+    <propina>0.00</propina>
+    <importeTotal>${montoNum.toFixed(2)}</importeTotal>
+    <moneda>DOLAR</moneda>
+    <pagos>
+      <pago>
+        <formaPago>01</formaPago>
+        <total>${montoNum.toFixed(2)}</total>
+        <plazo>0</plazo>
+        <unidadTiempo>dias</unidadTiempo>
+      </pago>
+    </pagos>
+  </infoFactura>
+  <detalles>
+    <detalle>
+      <codigoPrincipal>SRV-001</codigoPrincipal>
+      <descripcion>${escXML(concepto)}</descripcion>
+      <cantidad>1.000000</cantidad>
+      <precioUnitario>${montoNum.toFixed(6)}</precioUnitario>
+      <descuento>0.00</descuento>
+      <precioTotalSinImpuesto>${montoNum.toFixed(2)}</precioTotalSinImpuesto>
+      <impuestos>
+        <impuesto>
+          <codigo>2</codigo>
+          <codigoPorcentaje>7</codigoPorcentaje>
+          <tarifa>0</tarifa>
+          <baseImponible>${montoNum.toFixed(2)}</baseImponible>
+          <valor>0.00</valor>
+        </impuesto>
+      </impuestos>
+    </detalle>
+  </detalles>
+</factura>`;
+
+    return { xml, seq, claveAcceso, monto };
+}
+
+// Dígito verificador módulo 11
+function calcularDigitoVerificador(clave) {
+    const pesos = [2,3,4,5,6,7,2,3,4,5,6,7,2,3,4,5,6,7,2,3,4,5,6,7,2,3,4,5,6,7,2,3,4,5,6,7,2,3,4,5,6,7,2,3,4,5,6,7];
+    let suma = 0;
+    for (let i = clave.length - 1; i >= 0; i--) {
+        suma += parseInt(clave[i]) * pesos[clave.length - 1 - i];
+    }
+    const residuo = suma % 11;
+    const dv = residuo === 0 ? 0 : residuo === 1 ? 1 : 11 - residuo;
+    return dv;
+}
+
+function escXML(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+function generarYDescargarXML() {
+    const result = generarXML();
+    if (!result) return;
+    const { xml, seq, claveAcceso, monto } = result;
+
+    // Guardar para envío al SRI
+    _xmlGenerado = xml;
+
+    // Mostrar preview
+    document.getElementById('xml-preview').textContent = xml;
+    document.getElementById('xml-preview').style.display = 'block';
+    document.getElementById('xml-preview-label').style.display = 'block';
+
+    // Mostrar botón Enviar y status
+    document.getElementById('btn-enviar-sri').style.display = 'inline-block';
+    setSriStatus('✅ XML generado. Tocá "Enviar al SRI" para autorizar.', 'ok');
+
+    // Descargar
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `FAC_${EMISOR.estab}${EMISOR.ptoEmi}${String(seq).padStart(9,'0')}_${claveAcceso.slice(0,8)}.xml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    // Guardar secuencial en ambas keys (sincroniza con CFB App)
+    localStorage.setItem('arbitraje_seq_fact', String(seq + 1));
+    localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
+
+    if (opXML) {
+        opXML.xmlSeq   = `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`;
+        opXML.xmlMonto = monto;
+        renderHistorial();
+    }
+}
+
+/* ══════════════════════════════
+   EXPORTAR EXCEL — archivo único acumulativo
+   Nombre fijo: arbitraje_cripto.xlsx
+   Orden: fecha ASC + N° factura SRI
+══════════════════════════════ */
+function exportarExcel() {
+    if (historial.length === 0) return;
+
+    // historial ya está ordenado ASC por fecha
+    // Asignar número correlativo 1,2,3...
+    const filas = historial.map((op, i) => ({
+        'N°':                          i + 1,
+        'Fecha':                       op.fecha,
+        'Factura SRI':                 op.xmlSeq || '',
+        'Estado SRI':                  op.sriAutorizado ? 'AUTORIZADA' : (op.xmlSeq ? 'XML generado' : ''),
+        'USD Invertidos':              op.monto,
+        'Precio Compra USDT (USD)':    op.precioCompra,
+        'Comisión Compra (USDT)':      op.comisionCompra,
+        'USDT Netos':                  op.usdtNetos,
+        'Precio Venta USDT (ARS)':     op.precioVentaARS,
+        'Comisión Venta (USDT)':       op.comisionVenta || 0,
+        'ARS Obtenidos':               op.arsNetos,
+        'Tipo Cambio ARS→USD':         op.tipoCambio,
+        'USD Recuperados':             op.usdRecuperados,
+        'Ganancia USD (a facturar)':   op.ganancia,
+        'Rentabilidad %':              op.rentPct / 100,
+        'Notas':                       op.nota || ''
+    }));
+
+    const n = filas.length;
+    const totales = {
+        'N°': '', 'Fecha': 'TOTALES', 'Factura SRI': '', 'Estado SRI': '',
+        'USD Invertidos':            { f: `SUM(E2:E${n+1})` },
+        'Precio Compra USDT (USD)':  '',
+        'Comisión Compra (USDT)':    { f: `SUM(G2:G${n+1})` },
+        'USDT Netos':                { f: `SUM(H2:H${n+1})` },
+        'Precio Venta USDT (ARS)':   '',
+        'Comisión Venta (USDT)':     { f: `SUM(J2:J${n+1})` },
+        'ARS Obtenidos':             { f: `SUM(K2:K${n+1})` },
+        'Tipo Cambio ARS→USD':       '',
+        'USD Recuperados':           { f: `SUM(M2:M${n+1})` },
+        'Ganancia USD (a facturar)': { f: `SUM(N2:N${n+1})` },
+        'Rentabilidad %':            { f: `AVERAGE(O2:O${n+1})` },
+        'Notas': ''
+    };
+
+    const ws = XLSX.utils.json_to_sheet([...filas, totales]);
+    ws['!cols'] = [
+        {wch:5},{wch:18},{wch:22},{wch:14},
+        {wch:15},{wch:22},{wch:20},{wch:14},
+        {wch:22},{wch:20},{wch:16},{wch:18},
+        {wch:16},{wch:22},{wch:14},{wch:25}
+    ];
+
+    // Formatos numéricos
+    for (let r = 2; r <= n + 2; r++) {
+        ['E','M','N'].forEach(c => { if(ws[`${c}${r}`]) ws[`${c}${r}`].z = '"U$D "#,##0.00'; });
+        if(ws[`K${r}`]) ws[`K${r}`].z = '"$ "#,##0.00';
+        if(ws[`O${r}`]) ws[`O${r}`].z = '0.00%';
+        ['G','H','J'].forEach(c => { if(ws[`${c}${r}`]) ws[`${c}${r}`].z = '#,##0.00000'; });
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Operaciones');
+
+    // Hoja resumen
+    const wsR = XLSX.utils.aoa_to_sheet([
+        ['REGISTRO ARBITRAJE CRIPTO — ANUAR PROYECTOS'],
+        ['Usuario:',  usuarioActivo],
+        ['Versión:',  APP_VERSION],
+        ['Emisor:',   EMISOR.razonSocial],
+        ['RUC:',      EMISOR.ruc],
+        ['Régimen:',  'RIMPE Negocio Popular — Factura Electrónica'],
+        ['Generado:', new Date().toLocaleString('es-AR')],
+        [],
+        ['Total operaciones',          n],
+        ['Facturas SRI emitidas',      historial.filter(o=>o.xmlSeq).length],
+        ['Facturas autorizadas SRI',   historial.filter(o=>o.sriAutorizado).length],
+        [],
+        ['USD total invertidos',        { f: `=Operaciones!E${n+2}` }],
+        ['USD total recuperados',       { f: `=Operaciones!M${n+2}` }],
+        ['Ganancia total (comisión)',   { f: `=Operaciones!N${n+2}` }],
+        ['Rentabilidad promedio',       { f: `=Operaciones!O${n+2}` }],
+        ['Comisión Binance aplicada',   '0.038%'],
+    ]);
+    wsR['!cols'] = [{wch:28},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, wsR, 'Resumen');
+
+    // Nombre archivo incluye usuario — cada uno tiene el suyo
+    const nombreArchivo = `arbitraje_cripto_${usuarioActivo.replace(/\s+/g,'_')}.xlsx`;
+    XLSX.writeFile(wb, nombreArchivo);
+}
+
+/* ══════════════════════════════
+   COTIZACIÓN DÓLAR BLUE
+══════════════════════════════ */
+fetch('https://dolarapi.com/v1/dolares/blue')
+    .then(r => r.json())
+    .then(d => {
+        document.getElementById('blue-compra').textContent = `$${fmt(d.compra)}`;
+        document.getElementById('blue-venta').textContent  = `$${fmt(d.venta)}`;
+    })
+    .catch(() => {
+        document.getElementById('blue-compra').textContent = 'no disp.';
+        document.getElementById('blue-venta').textContent  = '';
+    });
+</script>
+</body>
+</html>
