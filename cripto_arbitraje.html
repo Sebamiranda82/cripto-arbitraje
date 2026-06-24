@@ -797,10 +797,25 @@ function abrirModalXML(idxPantalla) {
     document.getElementById('xml-cedula').value = '';
     document.getElementById('xml-nombre').value = '';
 
-    // Autocompletar desde directorio si la nota tiene alias de Binance
-    if (opXML.nota) {
-        const matchAlias = opXML.nota.match(/·\s*(.+)$/);
-        if (matchAlias) autocompletarDesdeDirectorio(matchAlias[1].trim());
+    const ganancia = Math.abs(opXML.ganancia || 0);
+
+    // Regla $50: ≤ $50 → consumidor final automático · > $50 → exige cédula
+    if (ganancia <= 50) {
+        document.getElementById('xml-cedula').value = '9999999999999';
+        document.getElementById('xml-nombre').value = 'CONSUMIDOR FINAL';
+        document.getElementById('xml-cedula').style.border = '1px solid #374151';
+        document.getElementById('xml-nombre').style.border = '1px solid #374151';
+    } else {
+        // Intentar autocompletar desde directorio
+        if (opXML.nota) {
+            const matchAlias = opXML.nota.match(/·\s*(.+)$/);
+            if (matchAlias) autocompletarDesdeDirectorio(matchAlias[1].trim());
+        }
+        // Si no se autocompletó, resaltar en amarillo para exigir ingreso
+        if (!document.getElementById('xml-cedula').value) {
+            document.getElementById('xml-cedula').style.border = '1px solid #f7c948';
+            document.getElementById('xml-nombre').style.border  = '1px solid #f7c948';
+        }
     }
     document.getElementById('xml-concepto').value = 'SERVICIO DE INTERMEDIACION Y COMISION POR CAMBIO DE DIVISAS DIGITALES';
     document.getElementById('xml-preview').style.display = 'none';
@@ -906,6 +921,17 @@ function generarXML() {
         alert('⚠️ Ingresá el nombre del cliente.');
         return null;
     }
+
+    // Validación regla $50 SRI
+    const ganancia = Math.abs(opXML?.ganancia || 0);
+    if (ganancia > 50 && cedula === '9999999999999') {
+        alert('⚠️ La comisión supera U$D 50.\nEl SRI requiere cédula o RUC real del cliente.\nNo se puede emitir como Consumidor Final.');
+        document.getElementById('xml-cedula').value = '';
+        document.getElementById('xml-nombre').value = '';
+        document.getElementById('xml-cedula').focus();
+        return null;
+    }
+
     if (!opXML) return null;
 
     // Determinar tipo identificación
@@ -1397,66 +1423,93 @@ function vincularYImportar(compraJson, ventaJson) {
 
     document.getElementById('modal-vincular')?.remove();
 
-    // Extraer datos
-    const cantCompra  = parseFloat(compra['Cantidad']) || 0;
-    const precCompra  = parseFloat(compra['Precio'])   || 0; // precio en USD
-    const feeCompra   = parseFloat(compra['Comisión del tomador']||compra['Comisión del Creador']||0);
-    const montoUSD    = parseFloat(compra['Precio total']) || 0;
+    const feeCompra  = parseFloat(compra['Comisión del tomador']||compra['Comisión del Creador']||0);
+    const montoUSD   = parseFloat(compra['Precio total']) || 0;
+    const precCompra = parseFloat(compra['Precio'])       || 0;
+    const feeVenta   = parseFloat(venta['Comisión del tomador']||venta['Comisión del Creador']||0);
+    const precVenta  = parseFloat(venta['Precio'])        || 0;
+    const totalVenta = parseFloat(venta['Precio total'])  || 0;
+    const fiatVenta  = venta['Tipo de Fiat'];             // 'ARS' o 'USD'
+    const fechaVenta = venta['Hora de creación'] || '';
+    const aliasVenta = venta['Contraparte'] || '';
+    const nroVenta   = venta['Número de orden']?.slice(-8) || '';
+    const nroCompra  = compra['Número de orden']?.slice(-8) || '';
 
-    const precVentaARS = parseFloat(venta['Precio'])      || 0;
-    const feeVenta     = parseFloat(venta['Comisión del tomador']||venta['Comisión del Creador']||0);
-
-    const fechaVenta   = venta['Hora de creación'] || '';
-    const aliasVenta   = venta['Contraparte'] || '';
-    const nroVenta     = venta['Número de orden']?.slice(-8) || '';
-    const nroCompra    = compra['Número de orden']?.slice(-8) || '';
-
-    // Precargar calculadora
-    document.getElementById('monto-usd').value      = montoUSD;
-    document.getElementById('precio-compra').value  = precCompra;
-
-    // Solo si la venta es en ARS
-    if (venta['Tipo de Fiat'] === 'ARS') {
-        document.getElementById('precio-venta-ars').value = precVentaARS;
-    }
-
-    // Precargar comisiones reales
+    // ── Paso 1: compra ──
+    document.getElementById('monto-usd').value     = montoUSD;
+    document.getElementById('precio-compra').value = precCompra;
     if (feeCompra > 0) {
         const inpCC = document.getElementById('comision-compra');
         inpCC.value = feeCompra.toFixed(5);
         inpCC.dataset.manual = '1';
     }
-    if (feeVenta > 0) {
-        const inpCV = document.getElementById('comision-venta');
-        inpCV.value = feeVenta.toFixed(5);
-        inpCV.dataset.manual = '1';
+
+    // ── Paso 2: venta ──
+    if (fiatVenta === 'ARS') {
+        // Venta normal en pesos → precio ARS, falta tipo de cambio
+        document.getElementById('precio-venta-ars').value = precVenta;
+        if (feeVenta > 0) {
+            const inpCV = document.getElementById('comision-venta');
+            inpCV.value = feeVenta.toFixed(5);
+            inpCV.dataset.manual = '1';
+        }
+    } else {
+        // Venta en USD → la ganancia es directamente totalVenta - montoUSD
+        // Precargamos precio venta ARS = 1 y tipo cambio = 1 como bypass
+        // y usamos el campo tipo-cambio para que calcular() funcione
+        // En realidad: usdRecuperados = totalVenta, ganancia = totalVenta - montoUSD
+        // Truco: precio-venta-ars = totalVenta/usdtNetos * tipoCambio
+        // Más simple: guardar como operación directa con ganancia conocida
+        // → precargamos precio-venta-ars vacío y tipo-cambio = 1
+        // y avisamos que es venta USD
+        document.getElementById('precio-venta-ars').value = '';
+        // guardamos la ganancia real para que el usuario la vea
+        const gananciaUSD = totalVenta - montoUSD;
+        // Usamos tipo-cambio = 1 y precio-venta-ars = totalVenta (en "ARS" ficticios)
+        // para que la calculadora muestre el resultado correcto
+        // usdtNetos ≈ cantCompra - feeCompra
+        const usdtNetos = (parseFloat(compra['Cantidad'])||0) - feeCompra;
+        if (usdtNetos > 0) {
+            document.getElementById('precio-venta-ars').value = (totalVenta / usdtNetos).toFixed(6);
+        }
+        document.getElementById('tipo-cambio').value = '1';
+        if (feeVenta > 0) {
+            const inpCV = document.getElementById('comision-venta');
+            inpCV.value = feeVenta.toFixed(5);
+            inpCV.dataset.manual = '1';
+        }
     }
 
-    // Fecha de la venta
+    // ── Fecha ──
     if (fechaVenta) {
         const fd = new Date(fechaVenta);
         fd.setMinutes(fd.getMinutes() - fd.getTimezoneOffset());
         document.getElementById('fecha-op').value = fd.toISOString().slice(0,16);
     }
 
-    // Nota con ambos números de orden y alias
+    // ── Nota ──
+    const tipoVenta = fiatVenta === 'USD' ? '[Venta USD]' : '[Venta ARS]';
     document.getElementById('nota').value =
-        `Compra #${nroCompra} → Venta #${nroVenta} · ${aliasVenta}`;
+        `${tipoVenta} Compra #${nroCompra} → Venta #${nroVenta} · ${aliasVenta}`;
 
-    // Calcular
     calcular();
-
-    // Scrollear
     document.getElementById('fecha-op').scrollIntoView({ behavior:'smooth', block:'start' });
 
-    // Solo falta el tipo de cambio ARS→USD
-    const faltaTipoCambio = venta['Tipo de Fiat'] === 'ARS';
-    if (faltaTipoCambio) {
+    setTimeout(() => {
+        if (fiatVenta === 'ARS') {
+            // Resaltar tipo de cambio que falta
+            const tc = document.getElementById('tipo-cambio');
+            tc.focus();
+            tc.style.border = '2px solid #f7c948';
+        }
+        // Destacar resultado para que lo vea
+        const res = document.getElementById('resultado');
+        if (res) res.style.boxShadow = '0 0 0 2px #f7c948';
         setTimeout(() => {
-            document.getElementById('tipo-cambio').focus();
-            document.getElementById('tipo-cambio').style.border = '2px solid #f7c948';
-        }, 600);
-    }
+            document.getElementById('tipo-cambio').style.border = '';
+            if (res) res.style.boxShadow = '';
+        }, 3000);
+    }, 600);
 }
 
 function precargarCompra(orden) {
