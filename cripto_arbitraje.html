@@ -155,8 +155,22 @@
     <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:24px; margin-bottom:20px;">
         <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px; margin-bottom:20px;">NUEVA OPERACIÓN</div>
 
-        <!-- FECHA MANUAL -->
-        <label style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+        <!-- COMISIÓN BINANCE -->
+        <div style="background:#0f1117; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <span style="font-size:11px; color:#718096;">COMISIÓN BINANCE:</span>
+            <select id="select-comision" onchange="cambiarComision(this.value)"
+                style="background:#1a1f2e; border:1px solid #2d3748; border-radius:6px; padding:6px 10px; color:#f7c948; font-size:12px; font-weight:700; outline:none; cursor:pointer;">
+                <option value="0.00038">0.038% (estándar)</option>
+                <option value="0.0008">0.080% (nivel cuenta)</option>
+                <option value="custom">Personalizada...</option>
+            </select>
+            <input id="comision-custom" type="number" step="0.001" min="0" max="1"
+                placeholder="ej: 0.05"
+                style="display:none; background:#1a1f2e; border:1px solid #f7c948; border-radius:6px;
+                       padding:6px 10px; color:#f7c948; font-size:12px; width:100px; outline:none;"
+                oninput="COMISION=parseFloat(this.value)/100||0.00038; calcular()">
+            <span id="comision-badge" style="font-size:11px; color:#4a5568;"></span>
+        </div>
             <span class="label-sm">Fecha de la operación <span style="color:#4a5568;">(podés cargar operaciones pasadas)</span></span>
             <input class="input-field" id="fecha-op" type="datetime-local" style="font-size:13px;">
         </label>
@@ -442,7 +456,23 @@ const APP_VERSION    = 'v3.0';
 const LS_USUARIO     = 'arbitraje_usuario_activo';
 const LS_TODOS       = 'arbitraje_usuarios_lista';
 const LS_DIRECTORIO  = 'arbitraje_directorio_v1';
-const COMISION       = 0.00038;
+let COMISION = 0.00038;  // modificable desde el selector
+
+function cambiarComision(val) {
+    const custom = document.getElementById('comision-custom');
+    const badge  = document.getElementById('comision-badge');
+    if (val === 'custom') {
+        custom.style.display = 'inline-block';
+        custom.focus();
+        const v = parseFloat(custom.value) / 100;
+        COMISION = v > 0 ? v : 0.00038;
+    } else {
+        custom.style.display = 'none';
+        COMISION = parseFloat(val);
+    }
+    badge.textContent = `= ${(COMISION * 100).toFixed(4)}%`;
+    calcular();
+}
 
 let usuarioActivo  = '';
 let historial      = [];
