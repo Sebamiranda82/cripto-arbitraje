@@ -1437,17 +1437,12 @@ function vincularYImportar(compraJson, ventaJson) {
     const nroCompra     = compra['Número de orden']?.slice(-8) || '';
 
     // ── Costo real de los USDT vendidos ──
-    // Binance cobra la comisión de la compra sobre los USDT brutos
-    // Lo que realmente recibís = Cantidad bruta - fee compra
-    const cantCompraTotal  = parseFloat(compra['Cantidad']) || cantVenta;
-    const usdtNetsCompra   = cantCompraTotal - feeCompra;  // lo que realmente tenés en wallet
+    // Proporción bruto/bruto: USDT vendidos brutos / USDT comprados brutos
+    const cantCompraTotal = parseFloat(compra['Cantidad']) || cantVenta;
+    const propVenta       = cantCompraTotal > 0 ? cantVenta / cantCompraTotal : 1;
+    const montoUSD        = propVenta * parseFloat(compra['Precio total'] || 0);
 
-    // Costo proporcional: cuánto USD costó conseguir los USDT que ahora vendés
-    // Se calcula sobre los USDT netos reales (lo que depositó Binance)
-    const propVenta = usdtNetsCompra > 0 ? cantVenta / usdtNetsCompra : 1;
-    const montoUSD  = propVenta * parseFloat(compra['Precio total'] || 0);
-
-    // Comisión compra proporcional a los USDT vendidos
+    // Comisión compra proporcional
     const feeCompraProp = feeCompra * propVenta;
 
     // ── Precargar calculadora ──
