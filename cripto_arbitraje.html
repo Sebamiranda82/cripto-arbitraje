@@ -1008,7 +1008,14 @@ async function enviarAlSRI() {
                 renderHistorial();
             }
         } else {
-            const msg = data.mensajes?.join(' · ') || data.autorizacion?.mensajes?.map(m=>m.mensaje)?.join(' · ') || data.error || 'Respuesta inesperada del SRI';
+            // Extraer mensaje legible de cualquier formato de respuesta
+            let msg = '';
+            if (typeof data.error === 'string')         msg = data.error;
+            else if (typeof data.error === 'object')    msg = JSON.stringify(data.error);
+            else if (data.mensajes?.length)             msg = data.mensajes.map(m => m.mensaje || m).join(' · ');
+            else if (data.autorizacion?.mensajes?.length) msg = data.autorizacion.mensajes.map(m => m.mensaje || m).join(' · ');
+            else if (data.estado)                       msg = `Estado: ${data.estado}`;
+            else                                        msg = JSON.stringify(data);
             setSriStatus(`❌ ${msg}`, 'error');
         }
     } catch (e) {
