@@ -866,7 +866,13 @@ function renderHistorial() {
 /* ══════════════════════════════
    MODAL XML SRI
 ══════════════════════════════ */
-const LS_SRI_URL = 'cfb_sri_server_url'; // misma key que CFB App
+const CFB_SERVER_URL = 'https://cfb-servidor.onrender.com';
+
+// Limpiar URL inválida de localStorage si existe
+(function() {
+    const url = localStorage.getItem(LS_SRI_URL) || '';
+    if (!url.startsWith('http')) localStorage.setItem(LS_SRI_URL, CFB_SERVER_URL);
+})();
 let _xmlGenerado = null;
 
 function abrirModalXML(idxPantalla) {
@@ -897,7 +903,7 @@ function abrirModalXML(idxPantalla) {
 
     // URL servidor — fix: evitar que aparezca "null" literal
     const urlGuardada = localStorage.getItem(LS_SRI_URL);
-    document.getElementById('xml-server-url').value = urlGuardada || '';
+    document.getElementById('xml-server-url').value = (urlGuardada && urlGuardada.startsWith('http')) ? urlGuardada : CFB_SERVER_URL;
 
     document.getElementById('xml-cedula').value = '';
     document.getElementById('xml-nombre').value = '';
