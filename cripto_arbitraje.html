@@ -374,8 +374,8 @@
             <input class="modal-input" id="xml-secuencial" type="number" placeholder="Ej: 1" min="1">
         </div>
         <div style="margin-bottom:16px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">CONCEPTO</label>
-            <input class="modal-input" id="xml-concepto" type="text" value="SERVICIO DE INTERMEDIACION Y COMISION POR CAMBIO DE DIVISAS DIGITALES">
+            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">OBSERVACIÓN <span style="color:#4a5568;">(va en infoAdicional del XML)</span></label>
+            <input class="modal-input" id="xml-concepto" type="text" placeholder="Ej: TRANSFERENCIA RECIBIDA EL DÍA 06/05/2026 AL BANCO DEL PACÍFICO">
         </div>
 
         <!-- Botones -->
@@ -871,17 +871,15 @@ function abrirModalXML(idxPantalla) {
     }
     // Concepto con leyenda de banco si existe
     const leyendaGuardada = (() => {
-        // Buscar en la nota de la operación
         if (opXML.nota) {
             const match = opXML.nota.match(/\|\s*(.+)$/);
             if (match) return match[1].trim();
         }
         return localStorage.getItem('arbitraje_leyenda_tmp') || '';
     })();
-    const conceptoBase = 'SERVICIO DE INTERMEDIACION Y COMISION POR CAMBIO DE DIVISAS DIGITALES';
     document.getElementById('xml-concepto').value = leyendaGuardada
-        ? `${conceptoBase}. ${leyendaGuardada.toUpperCase()}`
-        : conceptoBase;
+        ? leyendaGuardada.toUpperCase()
+        : '';
     document.getElementById('xml-preview').style.display = 'none';
     document.getElementById('xml-preview-label').style.display = 'none';
     document.getElementById('btn-enviar-sri').style.display = 'none';
@@ -1072,7 +1070,7 @@ function generarXML() {
   <detalles>
     <detalle>
       <codigoPrincipal>SRV-001</codigoPrincipal>
-      <descripcion>${escXML(concepto)}</descripcion>
+      <descripcion>SERVICIOS PRESTADOS</descripcion>
       <cantidad>1.000000</cantidad>
       <precioUnitario>${montoNum.toFixed(6)}</precioUnitario>
       <descuento>0.00</descuento>
@@ -1087,7 +1085,10 @@ function generarXML() {
         </impuesto>
       </impuestos>
     </detalle>
-  </detalles>
+  </detalles>${concepto ? `
+  <infoAdicional>
+    <campoAdicional nombre="OBSERVACION">${escXML(concepto)}</campoAdicional>
+  </infoAdicional>` : ''}
 </factura>`;
 
     return { xml, seq, claveAcceso, monto: montoNum.toFixed(2) };
