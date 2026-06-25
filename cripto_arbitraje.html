@@ -656,7 +656,31 @@ function calcular() {
     if (!paso1ok) { p1.style.display='none'; }
     if (!paso2ok) { p2.style.display='none'; }
     if (!paso3ok) { p3.style.display='none'; res.style.display='none'; }
-    ultimoRes = null;
+
+    // Permitir registrar con datos parciales si al menos hay monto y precio compra
+    if (paso1ok) {
+        const usdtBrutos2    = monto / precioCompra;
+        const comCompraReal2 = parseFloat(document.getElementById('comision-compra').value) || (usdtBrutos2 * COMISION);
+        const usdtNetosReal2 = Math.round((usdtBrutos2 - comCompraReal2) * 100) / 100;
+        // Ganancia parcial: 0 si no hay paso 3 completo
+        const gananciaP = paso3ok ? (ultimoRes?.ganancia || 0) : 0;
+        const rentPctP  = (monto > 0 && gananciaP) ? (gananciaP / monto) * 100 : 0;
+        ultimoRes = {
+            monto,
+            precioCompra,
+            precioVentaARS: parseFloat(document.getElementById('precio-venta-ars').value) || 0,
+            tipoCambio:     parseFloat(document.getElementById('tipo-cambio').value) || 0,
+            usdtNetos:      usdtNetosReal2,
+            comisionCompra: comCompraReal2,
+            comisionVenta:  parseFloat(document.getElementById('comision-venta').value) || 0,
+            arsNetos:       0,
+            usdRecuperados: 0,
+            ganancia:       gananciaP,
+            rentPct:        rentPctP
+        };
+    } else {
+        ultimoRes = null;
+    }
     actualizarBoton();
 }
 
