@@ -979,7 +979,7 @@ async function enviarAlSRI() {
     document.getElementById('btn-enviar-sri').disabled = true;
 
     try {
-        const resp = await fetch(url + '/factura/enviar', {
+        const resp = await fetch(url + '/firmar-enviar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ xml: _xmlGenerado }),
@@ -987,15 +987,17 @@ async function enviarAlSRI() {
         });
         const data = await resp.json();
 
-        if (data.ok && data.numeroAutorizacion) {
-            setSriStatus(`✅ AUTORIZADA · Nro: ${data.numeroAutorizacion}`, 'ok');
+        if (data.ok && (data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion)) {
+            const nroAut = data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion;
+            setSriStatus(`✅ AUTORIZADA · Nro: ${nroAut}`, 'ok');
             if (opXML) {
                 opXML.sriAutorizado = true;
-                opXML.sriNroAut = data.numeroAutorizacion;
+                opXML.sriNroAut = nroAut;
+                guardarHistorialUsuario();
                 renderHistorial();
             }
         } else {
-            const msg = data.mensajes?.join(' · ') || data.error || 'Respuesta inesperada del SRI';
+            const msg = data.mensajes?.join(' · ') || data.autorizacion?.mensajes?.map(m=>m.mensaje)?.join(' · ') || data.error || 'Respuesta inesperada del SRI';
             setSriStatus(`❌ ${msg}`, 'error');
         }
     } catch (e) {
