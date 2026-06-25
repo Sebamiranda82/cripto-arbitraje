@@ -1054,8 +1054,10 @@ function generarXML() {
     const montoNum     = parseFloat(montoFactura.toFixed(2));
 
     // Clave de acceso (49 dígitos): fechaddmmaaaa + codDoc + RUC + ambiente + estab + ptoEmi + seq + tipoEmision + digitoVerificador
-    const fechaCA = fechaXML.replace(/\//g,''); // ddmmaaaa
-    const claveBase = `${fechaCA}${EMISOR.codDoc}${EMISOR.ruc}${EMISOR.ambiente}${EMISOR.estab}${EMISOR.ptoEmi}${secStr}${EMISOR.tipoEmision}`;
+    const fechaCA  = fechaXML.replace(/\//g,''); // ddmmaaaa
+    // Código numérico 8 dígitos — se deriva del secuencial para ser reproducible
+    const codNum   = String(seq).padStart(8, '0').slice(-8).split('').reverse().join('').padStart(8,'1');
+    const claveBase = `${fechaCA}${EMISOR.codDoc}${EMISOR.ruc}${EMISOR.ambiente}${EMISOR.estab}${EMISOR.ptoEmi}${secStr}${codNum}${EMISOR.tipoEmision}`;
     const dv = calcularDigitoVerificador(claveBase);
     const claveAcceso = `${claveBase}${dv}`;
 
@@ -1099,7 +1101,7 @@ function generarXML() {
     <moneda>DOLAR</moneda>
     <pagos>
       <pago>
-        <formaPago>20</formaPago><!-- Otros con utilización del sistema financiero -->
+        <formaPago>20</formaPago>
         <total>${montoNum.toFixed(2)}</total>
         <plazo>0</plazo>
         <unidadTiempo>dias</unidadTiempo>
