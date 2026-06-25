@@ -378,6 +378,20 @@
             <input class="modal-input" id="xml-secuencial" type="number" placeholder="Ej: 1" min="1">
         </div>
         <div style="margin-bottom:16px;">
+            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">FORMA DE PAGO</label>
+            <select class="modal-input" id="xml-forma-pago" style="font-size:13px; cursor:pointer;">
+                <option value="20" selected>20 - Otros con utilización del sistema financiero</option>
+                <option value="01">01 - Sin utilización del sistema financiero (efectivo)</option>
+                <option value="15">15 - Compensación de deudas</option>
+                <option value="16">16 - Tarjeta de débito</option>
+                <option value="17">17 - Dinero electrónico</option>
+                <option value="18">18 - Tarjeta prepago</option>
+                <option value="19">19 - Tarjeta de crédito</option>
+                <option value="21">21 - Endoso de títulos</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom:16px;">
             <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">OBSERVACIÓN <span style="color:#4a5568;">(va en infoAdicional del XML)</span></label>
             <input class="modal-input" id="xml-concepto" type="text" placeholder="Ej: TRANSFERENCIA RECIBIDA EL DÍA 06/05/2026 AL BANCO DEL PACÍFICO">
         </div>
@@ -1101,7 +1115,7 @@ function generarXML() {
     <moneda>DOLAR</moneda>
     <pagos>
       <pago>
-        <formaPago>20</formaPago>
+        <formaPago>${document.getElementById('xml-forma-pago')?.value || '20'}</formaPago>
         <total>${montoNum.toFixed(2)}</total>
         <plazo>0</plazo>
         <unidadTiempo>dias</unidadTiempo>
