@@ -869,7 +869,19 @@ function abrirModalXML(idxPantalla) {
             document.getElementById('xml-nombre').style.border  = '1px solid #f7c948';
         }
     }
-    document.getElementById('xml-concepto').value = 'SERVICIO DE INTERMEDIACION Y COMISION POR CAMBIO DE DIVISAS DIGITALES';
+    // Concepto con leyenda de banco si existe
+    const leyendaGuardada = (() => {
+        // Buscar en la nota de la operación
+        if (opXML.nota) {
+            const match = opXML.nota.match(/\|\s*(.+)$/);
+            if (match) return match[1].trim();
+        }
+        return localStorage.getItem('arbitraje_leyenda_tmp') || '';
+    })();
+    const conceptoBase = 'SERVICIO DE INTERMEDIACION Y COMISION POR CAMBIO DE DIVISAS DIGITALES';
+    document.getElementById('xml-concepto').value = leyendaGuardada
+        ? `${conceptoBase}. ${leyendaGuardada.toUpperCase()}`
+        : conceptoBase;
     document.getElementById('xml-preview').style.display = 'none';
     document.getElementById('xml-preview-label').style.display = 'none';
     document.getElementById('btn-enviar-sri').style.display = 'none';
@@ -1050,7 +1062,7 @@ function generarXML() {
     <moneda>DOLAR</moneda>
     <pagos>
       <pago>
-        <formaPago>01</formaPago>
+        <formaPago>20</formaPago><!-- Otros con utilización del sistema financiero -->
         <total>${montoNum.toFixed(2)}</total>
         <plazo>0</plazo>
         <unidadTiempo>dias</unidadTiempo>
@@ -1434,6 +1446,17 @@ function mostrarComprasRelacionadas(venta) {
 
             <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;">Compras completadas (ordenadas por proximidad de fecha):</div>
 
+            <!-- Campo banco -->
+            <div style="background:#0f1117; border:1px solid #f7c948; border-radius:10px; padding:12px; margin-bottom:12px;">
+                <div style="font-size:10px; color:#f7c948; font-weight:700; margin-bottom:8px;">🏦 BANCO DONDE RECIBISTE EL PAGO</div>
+                <input id="vincular-banco" type="text" placeholder="Ej: Banco del Pacífico, Mercadopago, Banco Internacional..."
+                    style="background:#1a1f2e; border:1px solid #2d3748; border-radius:8px; padding:8px 12px;
+                           color:#e2e8f0; font-size:13px; width:100%; outline:none; box-sizing:border-box;">
+                <div style="font-size:10px; color:#4a5568; margin-top:6px;">
+                    Se usará para generar la leyenda de la factura automáticamente
+                </div>
+            </div>
+
             ${compras.length === 0
                 ? '<div style="color:#4a5568;font-size:12px;text-align:center;padding:16px;">No hay compras registradas en el CSV</div>'
                 : compras.map(c => {
@@ -1531,10 +1554,17 @@ function vincularYImportar(compraJson, ventaJson) {
         document.getElementById('fecha-op').value = fd.toISOString().slice(0,16);
     }
 
-    // ── Nota ──
-    const tipoTag = fiatVenta === 'USD' ? '[Venta USD]' : '[Venta ARS]';
-    document.getElementById('nota').value =
-        `${tipoTag} Compra #${nroCompra} → Venta #${nroVenta} · ${aliasVenta}`;
+    const banco      = document.getElementById('vincular-banco')?.value.trim() || '';
+
+    // Formatear fecha de la venta para la leyenda
+    const fechaVObj  = new Date(fechaVenta);
+    const fechaLey   = fechaVObj.toLocaleDateString('es-EC', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const leyenda    = banco
+        ? `Transferencia recibida el día ${fechaLey} al ${banco}`
+        : '';
+    const notaBase = `${tipoTag} Compra #${nroCompra} → Venta #${nroVenta} · ${aliasVenta}`;
+    document.getElementById('nota').value = leyenda ? `${notaBase} | ${leyenda}` : notaBase;
+    if (leyenda) localStorage.setItem('arbitraje_leyenda_tmp', leyenda);
 
     calcular();
     document.getElementById('fecha-op').scrollIntoView({ behavior:'smooth', block:'start' });
