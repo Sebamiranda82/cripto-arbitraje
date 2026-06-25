@@ -452,8 +452,8 @@
 ══════════════════════════════ */
 const EMISOR = {
     ruc:                  '0967482498001',
-    razonSocial:          'ANDRES SEBASTIAN MIRANDA',
-    nombreComercial:      'ANDRES SEBASTIAN MIRANDA',
+    razonSocial:          'MIRANDA ANDRES SEBASTIAN',
+    nombreComercial:      'MIRANDA ANDRES SEBASTIAN',
     regimen:              'RIMPE_NEGOCIO_POPULAR',
     obligadoContabilidad: 'NO',
     dirMatriz:            'CAPITAN NAJERA 4607',
@@ -1069,10 +1069,7 @@ function generarXML() {
 
     if (!opXML) return null;
 
-    // Determinar tipo identificación
-    const tipoId = cedula.length === 13
-        ? (cedula.endsWith('001') ? '04' : '05')  // 04=RUC, 05=pasaporte/otro
-        : '05';                                    // 05=cédula ecuatoriana
+    // tipoIdentificacion: siempre 07 (igual que CFB autorizado por SRI)
 
     const secStr = String(seq).padStart(9, '0');
 
@@ -1095,8 +1092,7 @@ function generarXML() {
     const dv = calcularDigitoVerificador(claveBase);
     const claveAcceso = `${claveBase}${dv}`;
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<factura id="comprobante" version="2.1.0">
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><factura id="comprobante" version="2.1.0">
   <infoTributaria>
     <ambiente>${EMISOR.ambiente}</ambiente>
     <tipoEmision>${EMISOR.tipoEmision}</tipoEmision>
@@ -1109,26 +1105,23 @@ function generarXML() {
     <ptoEmi>${EMISOR.ptoEmi}</ptoEmi>
     <secuencial>${secStr}</secuencial>
     <dirMatriz>${escXML(EMISOR.dirMatriz)}</dirMatriz>
-    <regimenMicroempresa>NEGOCIOS POPULARES</regimenMicroempresa>
   </infoTributaria>
   <infoFactura>
     <fechaEmision>${fechaXML}</fechaEmision>
-    <dirEstablecimiento>${escXML(EMISOR.dirEstablecimiento)}</dirEstablecimiento>
-    <contribuyenteEspecial></contribuyenteEspecial>
+    <dirEstablecimiento>${escXML(EMISOR.dirMatriz)}</dirEstablecimiento>
     <obligadoContabilidad>${EMISOR.obligadoContabilidad}</obligadoContabilidad>
-    <tipoIdentificacionComprador>${tipoId}</tipoIdentificacionComprador>
+    <regimenMicroempresa>NEGOCIOS POPULARES</regimenMicroempresa>
+    <tipoIdentificacionComprador>07</tipoIdentificacionComprador>
     <razonSocialComprador>${escXML(nombre)}</razonSocialComprador>
     <identificacionComprador>${cedula}</identificacionComprador>
-    <direccionComprador></direccionComprador>
     <totalSinImpuestos>${montoNum.toFixed(2)}</totalSinImpuestos>
     <totalDescuento>0.00</totalDescuento>
     <totalConImpuestos>
-      <totalImpuesto>
-        <codigo>2</codigo>
-        <codigoPorcentaje>7</codigoPorcentaje>
-        <baseImponible>${montoNum.toFixed(2)}</baseImponible>
-        <valor>0.00</valor>
-      </totalImpuesto>
+          <totalImpuesto>
+            <codigo>2</codigo><codigoPorcentaje>0</codigoPorcentaje>
+            <baseImponible>${montoNum.toFixed(2)}</baseImponible>
+            <valor>0.00</valor>
+          </totalImpuesto>
     </totalConImpuestos>
     <propina>0.00</propina>
     <importeTotal>${montoNum.toFixed(2)}</importeTotal>
@@ -1143,27 +1136,27 @@ function generarXML() {
     </pagos>
   </infoFactura>
   <detalles>
-    <detalle>
-      <codigoPrincipal>SRV-001</codigoPrincipal>
-      <descripcion>SERVICIOS PRESTADOS</descripcion>
-      <cantidad>1.000000</cantidad>
-      <precioUnitario>${montoNum.toFixed(6)}</precioUnitario>
-      <descuento>0.00</descuento>
-      <precioTotalSinImpuesto>${montoNum.toFixed(2)}</precioTotalSinImpuesto>
-      <impuestos>
-        <impuesto>
-          <codigo>2</codigo>
-          <codigoPorcentaje>7</codigoPorcentaje>
-          <tarifa>0</tarifa>
-          <baseImponible>${montoNum.toFixed(2)}</baseImponible>
-          <valor>0.00</valor>
-        </impuesto>
-      </impuestos>
-    </detalle>
-  </detalles>${concepto ? `
+      <detalle>
+        <codigoPrincipal>SRV-001</codigoPrincipal>
+        <descripcion>SERVICIOS PRESTADOS</descripcion>
+        <cantidad>1.000000</cantidad>
+        <precioUnitario>${montoNum.toFixed(6)}</precioUnitario>
+        <descuento>0.00</descuento>
+        <precioTotalSinImpuesto>${montoNum.toFixed(2)}</precioTotalSinImpuesto>
+        <impuestos>
+          <impuesto>
+            <codigo>2</codigo>
+            <codigoPorcentaje>0</codigoPorcentaje>
+            <tarifa>0.00</tarifa>
+            <baseImponible>${montoNum.toFixed(2)}</baseImponible>
+            <valor>0.00</valor>
+          </impuesto>
+        </impuestos>
+      </detalle>
+  </detalles>
   <infoAdicional>
-    <campoAdicional nombre="OBSERVACION">${escXML(concepto)}</campoAdicional>
-  </infoAdicional>` : ''}
+    <campoAdicional nombre="OBSERVACION">${escXML(concepto || 'SERVICIO DE INTERMEDIACION')}</campoAdicional>
+  </infoAdicional>
 </factura>`;
 
     return { xml, seq, claveAcceso, monto: montoNum.toFixed(2) };
