@@ -276,6 +276,22 @@
         </div>
     </div>
 
+    <!-- HISTORIAL -->
+    <div id="seccion-historial" style="display:none; background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">HISTORIAL</div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="limpiarHistorial()" style="background:none; border:1px solid #374151; color:#4a5568; border-radius:8px; padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer;">
+                    🗑 Limpiar
+                </button>
+                <button onclick="exportarExcel()" style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer;">
+                    ⬇ EXPORTAR EXCEL
+                </button>
+            </div>
+        </div>
+        <div id="lista-historial"></div>
+    </div>
+
     <!-- PANEL BINANCE P2P -->
     <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px; margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
@@ -292,12 +308,16 @@
                     style="background:#0f1117; color:#f7c948; border:1px solid #f7c948; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
                     📋 Directorio
                 </button>
+                <button id="btn-toggle-binance" onclick="toggleBinance()"
+                    style="background:#0f1117; color:#94a3b8; border:1px solid #374151; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
+                    👁 Ocultar
+                </button>
             </div>
             <input type="file" id="csv-input" accept=".csv,.zip" style="display:none;" onchange="cargarCSVBinance(event)">
         </div>
 
         <!-- Filtros -->
-        <div id="binance-filtros" style="display:none; margin-bottom:12px; display:none;">
+        <div id="binance-filtros" style="display:none; margin-bottom:12px;">
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
                 <button onclick="filtrarOrdenes('all')"  class="tab-btn active" id="tab-all">Todas</button>
                 <button onclick="filtrarOrdenes('Sell')" class="tab-btn" id="tab-sell">↗ Ventas</button>
@@ -311,22 +331,6 @@
                 Exportá el historial desde <strong style="color:#94a3b8;">p2p.binance.com → Todas las Órdenes → ↗ Exportar</strong> y cargalo acá
             </div>
         </div>
-    </div>
-
-    <!-- HISTORIAL -->
-    <div id="seccion-historial" style="display:none; background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">HISTORIAL</div>
-            <div style="display:flex; gap:8px;">
-                <button onclick="limpiarHistorial()" style="background:none; border:1px solid #374151; color:#4a5568; border-radius:8px; padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer;">
-                    🗑 Limpiar
-                </button>
-                <button onclick="exportarExcel()" style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer;">
-                    ⬇ EXPORTAR EXCEL
-                </button>
-            </div>
-        </div>
-        <div id="lista-historial"></div>
     </div>
 
     <div id="empty-msg" style="text-align:center; color:#4a5568; padding:40px; font-size:13px;">
@@ -755,6 +759,17 @@ function registrar() {
     ultimoRes = null;
     actualizarBoton();
     renderHistorial();
+}
+
+let _binanceVisible = true;
+function toggleBinance() {
+    _binanceVisible = !_binanceVisible;
+    const panel   = document.getElementById('binance-panel');
+    const filtros = document.getElementById('binance-filtros');
+    const btn     = document.getElementById('btn-toggle-binance');
+    panel.style.display   = _binanceVisible ? 'block' : 'none';
+    if (filtros && ordenesFiltr.length) filtros.style.display = _binanceVisible ? 'block' : 'none';
+    btn.textContent = _binanceVisible ? '👁 Ocultar' : '👁 Mostrar';
 }
 
 function limpiarHistorial() {
