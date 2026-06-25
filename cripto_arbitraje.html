@@ -1092,7 +1092,7 @@ function generarXML() {
     const dv = calcularDigitoVerificador(claveBase);
     const claveAcceso = `${claveBase}${dv}`;
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><factura id="comprobante" version="2.1.0">
+    const xml = `<factura id="comprobante" version="2.1.0">
   <infoTributaria>
     <ambiente>${EMISOR.ambiente}</ambiente>
     <tipoEmision>${EMISOR.tipoEmision}</tipoEmision>
