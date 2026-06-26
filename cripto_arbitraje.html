@@ -399,7 +399,7 @@
         <!-- Botones -->
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
             <button class="btn-xml btn-dl" onclick="generarYDescargarXML()">⬇ Descargar XML</button>
-            <button class="btn-xml btn-sri" id="btn-enviar-sri" onclick="enviarAlSRI()" style="display:none;">
+            <button class="btn-xml btn-sri" id="btn-enviar-sri" onclick="enviarAlSRI()">
                 🚀 Enviar al SRI
             </button>
             <button class="btn-xml btn-close" onclick="cerrarModal()">✕ Cancelar</button>
@@ -976,49 +976,71 @@ function setSriStatus(msg, tipo) {
 }
 
 async function enviarAlSRI() {
-    if (!_xmlGenerado) { setSriStatus('⚠️ Primero generá/descargá el XML', 'error'); return; }
-    const url = document.getElementById('xml-server-url').value.trim().replace(/\/$/, '');
-    if (!url) { setSriStatus('⚠️ Ingresá la URL del servidor CFB', 'error'); return; }
-
-    // Guardar URL para próxima vez
-    localStorage.setItem(LS_SRI_URL, url);
+    if (!opXML) { setSriStatus('⚠️ No hay operación activa', 'error'); return; }
+    const url = CFB_SERVER_URL;
 
     setSriStatus('⏳ Enviando al SRI…', 'loading');
     document.getElementById('btn-enviar-sri').disabled = true;
 
+    // Leer datos del modal
+    const cedula     = document.getElementById('xml-cedula').value.trim();
+    const nombre     = document.getElementById('xml-nombre').value.trim();
+    const secuencial = parseInt(document.getElementById('xml-secuencial').value) || 1;
+    const formaPago  = document.getElementById('xml-forma-pago')?.value || '20';
+    const observacion = document.getElementById('xml-concepto').value.trim();
+    const ganancia   = parseFloat(document.getElementById('xml-ganancia')?.value) || Math.abs(opXML.ganancia || 0);
+
+    // Validar
+    if (!cedula || (cedula.length !== 10 && cedula.length !== 13)) {
+        setSriStatus('⚠️ Ingresá una cédula válida', 'error');
+        document.getElementById('btn-enviar-sri').disabled = false;
+        return;
+    }
+
     try {
-        const resp = await fetch(url + '/firmar-enviar', {
+        const resp = await fetch(url + '/arbitraje/factura', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                xml: _xmlGenerado,
-                claveAcceso: _claveAccesoGenerada
+                datos: {
+                    monto:       ganancia.toFixed(2),
+                    fecha:       opXML.fechaISO || new Date().toISOString(),
+                    cedula,
+                    nombre,
+                    secuencial,
+                    formaPago,
+                    observacion,
+                    estab:  '001',
+                    ptoEmi: '002'
+                }
             }),
-            signal: AbortSignal.timeout(45000)
+            signal: AbortSignal.timeout(60000)
         });
         const data = await resp.json();
 
         if (data.ok && (data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion)) {
             const nroAut = data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion;
             setSriStatus(`✅ AUTORIZADA · Nro: ${nroAut}`, 'ok');
+            // Incrementar secuencial
+            localStorage.setItem('arbitraje_seq_fact', String(secuencial + 1));
+            localStorage.setItem('cfb_seq_fact_v1',    String(secuencial + 1));
             if (opXML) {
                 opXML.sriAutorizado = true;
-                opXML.sriNroAut = nroAut;
+                opXML.sriNroAut     = nroAut;
+                opXML.xmlSeq        = `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(secuencial).padStart(9,'0')}`;
                 guardarHistorialUsuario();
                 renderHistorial();
             }
         } else {
-            // Extraer mensaje legible de cualquier formato de respuesta
             let msg = '';
-            if (typeof data.error === 'string')         msg = data.error;
-            else if (typeof data.error === 'object')    msg = JSON.stringify(data.error);
-            else if (data.mensajes?.length)             msg = data.mensajes.map(m => m.mensaje || m).join(' · ');
+            if (typeof data.error === 'string')           msg = data.error;
+            else if (data.mensajes?.length)               msg = data.mensajes.map(m => m.mensaje || m).join(' · ');
             else if (data.autorizacion?.mensajes?.length) msg = data.autorizacion.mensajes.map(m => m.mensaje || m).join(' · ');
-            else if (data.estado)                       msg = `Estado: ${data.estado}`;
-            else                                        msg = JSON.stringify(data);
+            else if (data.estado)                         msg = `Estado: ${data.estado}`;
+            else                                          msg = JSON.stringify(data).slice(0, 200);
             setSriStatus(`❌ ${msg}`, 'error');
         }
-    } catch (e) {
+    } catch(e) {
         setSriStatus(`❌ Error de conexión: ${e.message}`, 'error');
     } finally {
         document.getElementById('btn-enviar-sri').disabled = false;
