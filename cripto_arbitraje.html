@@ -460,7 +460,7 @@ const EMISOR = {
     dirEstablecimiento:   'CAPITAN NAJERA 4511 ENTRE CALLE 17 Y 18',
     estab:                '001',
     ptoEmi:               '002',
-    ambiente:             '1',     // 1=Pruebas
+    ambiente:             '2',     // 2=Producción (igual que CFB)
     tipoEmision:          '1',
     codDoc:               '01',    // 01=Factura Electrónica
 };
@@ -1086,8 +1086,7 @@ function generarXML() {
 
     // Clave de acceso (49 dígitos): fechaddmmaaaa + codDoc + RUC + ambiente + estab + ptoEmi + seq + tipoEmision + digitoVerificador
     const fechaCA  = fechaXML.replace(/\//g,''); // ddmmaaaa
-    // Código numérico 8 dígitos — se deriva del secuencial para ser reproducible
-    const codNum   = String(seq).padStart(8, '0').slice(-8).split('').reverse().join('').padStart(8,'1');
+    const codNum   = '12345678'; // código numérico fijo (SRI no lo valida)
     const claveBase = `${fechaCA}${EMISOR.codDoc}${EMISOR.ruc}${EMISOR.ambiente}${EMISOR.estab}${EMISOR.ptoEmi}${secStr}${codNum}${EMISOR.tipoEmision}`;
     const dv = calcularDigitoVerificador(claveBase);
     const claveAcceso = `${claveBase}${dv}`;
