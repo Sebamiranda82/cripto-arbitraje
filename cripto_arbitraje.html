@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arbitraje Cripto - ANUAR PROYECTOS</title>
-    <!-- v3.0 — Panel importación CSV Binance P2P + Directorio de contrapartes con cédula -->
+    <!-- v3.1 — Fix orden XSD SRI: regimenMicroempresa despues de totalConImpuestos -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -109,7 +109,7 @@
     <div class="usuario-box">
         <div style="font-size:36px; margin-bottom:16px;">₿</div>
         <div style="font-size:22px; font-weight:800; color:#f7c948; margin-bottom:6px;">ARBITRAJE CRIPTO</div>
-        <div style="font-size:12px; color:#718096; letter-spacing:2px; margin-bottom:28px;">ANUAR PROYECTOS · v3.0</div>
+        <div style="font-size:12px; color:#718096; letter-spacing:2px; margin-bottom:28px;">ANUAR PROYECTOS · v3.1</div>
         <div style="font-size:13px; color:#94a3b8; margin-bottom:16px;">¿Con qué nombre querés registrarte?</div>
         <input id="input-usuario" class="input-field" type="text" maxlength="30"
             placeholder="Tu nombre o apodo"
@@ -130,7 +130,7 @@
             <div style="font-size:26px;">₿</div>
             <div>
                 <div style="font-size:19px; font-weight:700; color:#f7c948; letter-spacing:-0.5px;">ARBITRAJE CRIPTO</div>
-                <div style="font-size:10px; color:#4a5568; letter-spacing:1px;">v3.0 · ANUAR PROYECTOS</div>
+                <div style="font-size:10px; color:#4a5568; letter-spacing:1px;">v3.1 · ANUAR PROYECTOS</div>
             </div>
             <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
                 <div class="badge">Comisión: <strong>0.038%</strong></div>
@@ -470,7 +470,7 @@ const EMISOR = {
    Cada usuario tiene su propio historial
    key: arbitraje_historial_v1_NOMBRE
 ══════════════════════════════ */
-const APP_VERSION    = 'v3.0';
+const APP_VERSION    = 'v3.1';
 const LS_USUARIO     = 'arbitraje_usuario_activo';
 const LS_TODOS       = 'arbitraje_usuarios_lista';
 const LS_DIRECTORIO  = 'arbitraje_directorio_v1';
