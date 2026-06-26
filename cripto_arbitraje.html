@@ -1112,7 +1112,6 @@ function generarXML() {
     <tipoIdentificacionComprador>07</tipoIdentificacionComprador>
     <razonSocialComprador>${escXML(nombre)}</razonSocialComprador>
     <identificacionComprador>${cedula}</identificacionComprador>
-    <regimenMicroempresa>NEGOCIOS POPULARES</regimenMicroempresa>
     <totalSinImpuestos>${montoNum.toFixed(2)}</totalSinImpuestos>
     <totalDescuento>0.00</totalDescuento>
     <totalConImpuestos>
@@ -1122,6 +1121,7 @@ function generarXML() {
             <valor>0.00</valor>
           </totalImpuesto>
     </totalConImpuestos>
+    <regimenMicroempresa>NEGOCIOS POPULARES</regimenMicroempresa>
     <propina>0.00</propina>
     <importeTotal>${montoNum.toFixed(2)}</importeTotal>
     <moneda>DOLAR</moneda>
