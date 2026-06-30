@@ -426,6 +426,12 @@
         <!-- Estado SRI -->
         <div id="sri-status" style="display:none; border-radius:8px; padding:10px 14px; font-size:12px; font-weight:600; margin-bottom:10px;"></div>
 
+        <!-- Ver factura autorizada -->
+        <button id="btn-ver-factura" onclick="mostrarFacturaVisual()" style="display:none; width:100%; margin-bottom:12px;
+            background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:10px; font-size:13px; font-weight:700; cursor:pointer;">
+            📄 Ver Factura Autorizada
+        </button>
+
         <!-- Preview XML -->
         <div id="xml-preview-label" style="font-size:10px; color:#4a5568; margin-top:8px; display:none;">PREVIEW XML</div>
         <div class="xml-preview" id="xml-preview" style="display:none;"></div>
@@ -894,6 +900,7 @@ const LS_SRI_URL     = 'cfb_sri_server_url';
 })();
 let _xmlGenerado = null;
 let _claveAccesoGenerada = null;
+let _facturaAutorizada = null;
 
 // Meses en español para formatear fecha
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -917,6 +924,83 @@ function actualizarObservacion() {
     lineas.push('El total de la factura representa la comisión cobrada por el servicio');
 
     document.getElementById('xml-concepto').value = lineas.join('\n');
+}
+
+function mostrarFacturaVisual() {
+    if (!_facturaAutorizada) return;
+    const f = _facturaAutorizada;
+    const fechaAutFmt = new Date(f.fechaAut).toLocaleString('es-EC', {
+        day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+    });
+
+    const existente = document.getElementById('modal-factura-visual');
+    if (existente) existente.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-factura-visual';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:29999;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;padding:16px;';
+    modal.innerHTML = `
+        <div style="background:#fff;color:#1a1a1a;border-radius:12px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;font-family:Arial,sans-serif;">
+            <div style="text-align:center;border-bottom:3px solid #166534;padding-bottom:14px;margin-bottom:16px;">
+                <div style="font-size:11px;color:#4ade80;background:#166534;display:inline-block;padding:4px 14px;border-radius:20px;font-weight:700;margin-bottom:10px;">
+                    ✅ AUTORIZADA POR EL SRI
+                </div>
+                <div style="font-size:16px;font-weight:800;">FACTURA ELECTRÓNICA</div>
+                <div style="font-size:12px;color:#666;margin-top:2px;">N° ${f.secuencial}</div>
+            </div>
+
+            <div style="font-size:12px;line-height:1.6;margin-bottom:14px;">
+                <strong>${EMISOR.razonSocial}</strong><br>
+                RUC: ${EMISOR.ruc}<br>
+                ${EMISOR.dirMatriz}<br>
+                Régimen: RIMPE Negocio Popular
+            </div>
+
+            <div style="border-top:1px dashed #ccc;border-bottom:1px dashed #ccc;padding:12px 0;margin-bottom:14px;font-size:12px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <span style="color:#666;">Cliente:</span><strong>${f.nombre}</strong>
+                    <span style="color:#666;">Identificación:</span><strong>${f.cedula}</strong>
+                    <span style="color:#666;">Fecha autorización:</span><strong>${fechaAutFmt}</strong>
+                    <span style="color:#666;">Forma de pago:</span><strong>${f.formaPago}</strong>
+                </div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <tr style="background:#f3f4f6;">
+                        <td style="padding:8px;font-weight:700;">Descripción</td>
+                        <td style="padding:8px;font-weight:700;text-align:right;">Total</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px;border-bottom:1px solid #eee;">Servicios prestados</td>
+                        <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${parseFloat(f.monto).toFixed(2)}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="text-align:right;font-size:13px;margin-bottom:16px;">
+                <div>Subtotal: $${parseFloat(f.monto).toFixed(2)}</div>
+                <div>IVA 0%: $0.00</div>
+                <div style="font-size:18px;font-weight:800;color:#166534;margin-top:4px;">
+                    TOTAL: $${parseFloat(f.monto).toFixed(2)}
+                </div>
+            </div>
+
+            <div style="background:#f9fafb;border-radius:8px;padding:10px;font-size:10.5px;color:#444;white-space:pre-wrap;margin-bottom:16px;">
+${f.observacion}
+            </div>
+
+            <div style="font-size:9px;color:#888;border-top:1px solid #eee;padding-top:10px;word-break:break-all;">
+                <div><strong>N° Autorización:</strong> ${f.nroAut}</div>
+                <div style="margin-top:4px;"><strong>Clave de Acceso:</strong> ${f.claveAcceso}</div>
+            </div>
+
+            <button onclick="document.getElementById('modal-factura-visual').remove()"
+                style="width:100%;margin-top:18px;padding:12px;background:#166534;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">
+                Cerrar
+            </button>
+        </div>`;
+    document.body.appendChild(modal);
 }
 
 function abrirModalXML(idxPantalla) {
@@ -1007,8 +1091,10 @@ function abrirModalXML(idxPantalla) {
     document.getElementById('xml-preview').style.display = 'none';
     document.getElementById('xml-preview-label').style.display = 'none';
     document.getElementById('btn-enviar-sri').style.display = 'none';
+    document.getElementById('btn-ver-factura').style.display = 'none';
     document.getElementById('sri-status').style.display = 'none';
     _xmlGenerado = null;
+    _facturaAutorizada = null;
 
     // Secuencial: leer de CFB App primero (misma key), si no existe usar la propia
     // cfb_seq_fact_v1 = último usado en CFB → el siguiente sería ese mismo valor
@@ -1082,7 +1168,22 @@ async function enviarAlSRI() {
 
         if (data.ok && (data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion)) {
             const nroAut = data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion;
+            const fechaAut = data.fechaAutorizacion || data.autorizacion?.fechaAutorizacion || new Date().toISOString();
             setSriStatus(`✅ AUTORIZADA · Nro: ${nroAut}`, 'ok');
+
+            // Guardar datos para mostrar factura
+            _facturaAutorizada = {
+                nroAut, fechaAut,
+                claveAcceso,
+                secuencial: `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`,
+                cedula: document.getElementById('xml-cedula').value,
+                nombre: document.getElementById('xml-nombre').value,
+                monto: document.getElementById('xml-ganancia').value,
+                observacion: document.getElementById('xml-concepto').value,
+                formaPago: document.getElementById('xml-forma-pago').options[document.getElementById('xml-forma-pago').selectedIndex].text
+            };
+            document.getElementById('btn-ver-factura').style.display = 'inline-block';
+
             localStorage.setItem('arbitraje_seq_fact', String(seq + 1));
             localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
             if (opXML) {
