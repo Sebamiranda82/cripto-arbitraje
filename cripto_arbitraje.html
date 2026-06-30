@@ -929,8 +929,14 @@ function actualizarObservacion() {
 function abrirFacturaEnSRI() {
     if (!_facturaAutorizada) return;
     const clave = _facturaAutorizada.claveAcceso;
-    // Página oficial de consulta de comprobantes electrónicos del SRI
-    const url = `https://srienlinea.sri.gob.ec/comprobantes-electronicos-internet/pages/consultas/comprobantesEmitidosConsultas.jsf?claveAcceso=${clave}`;
+
+    // Copiar la clave al portapapeles para pegarla fácil en el SRI
+    navigator.clipboard?.writeText(clave).catch(()=>{});
+
+    alert(`📋 Clave de acceso copiada:\n\n${clave}\n\nSe abrirá la página oficial del SRI. Pegá la clave en el campo "Clave de acceso / Nro. autorización" y tocá Consultar.`);
+
+    // Página oficial de consulta de validez de comprobantes del SRI
+    const url = 'https://srienlinea.sri.gob.ec/comprobantes-electronicos-internet/publico/validezComprobantes.jsf';
     window.open(url, '_blank');
 }
 
