@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arbitraje Cripto - ANUAR PROYECTOS</title>
-    <!-- v3.2 — XML generado en servidor igual que CFB, endpoint /arbitraje/factura -->
+    <!-- v3.3 — XML version 1.1.0 igual que CFB, endpoint /firmar-enviar, sin modificar servidor -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -109,7 +109,7 @@
     <div class="usuario-box">
         <div style="font-size:36px; margin-bottom:16px;">₿</div>
         <div style="font-size:22px; font-weight:800; color:#f7c948; margin-bottom:6px;">ARBITRAJE CRIPTO</div>
-        <div style="font-size:12px; color:#718096; letter-spacing:2px; margin-bottom:28px;">ANUAR PROYECTOS · v3.2</div>
+        <div style="font-size:12px; color:#718096; letter-spacing:2px; margin-bottom:28px;">ANUAR PROYECTOS · v3.3</div>
         <div style="font-size:13px; color:#94a3b8; margin-bottom:16px;">¿Con qué nombre querés registrarte?</div>
         <input id="input-usuario" class="input-field" type="text" maxlength="30"
             placeholder="Tu nombre o apodo"
@@ -130,7 +130,7 @@
             <div style="font-size:26px;">₿</div>
             <div>
                 <div style="font-size:19px; font-weight:700; color:#f7c948; letter-spacing:-0.5px;">ARBITRAJE CRIPTO</div>
-                <div style="font-size:10px; color:#4a5568; letter-spacing:1px;">v3.2 · ANUAR PROYECTOS</div>
+                <div style="font-size:10px; color:#4a5568; letter-spacing:1px;">v3.3 · ANUAR PROYECTOS</div>
             </div>
             <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
                 <div class="badge">Comisión: <strong>0.038%</strong></div>
@@ -470,7 +470,7 @@ const EMISOR = {
    Cada usuario tiene su propio historial
    key: arbitraje_historial_v1_NOMBRE
 ══════════════════════════════ */
-const APP_VERSION    = 'v3.2';
+const APP_VERSION    = 'v3.3';
 const LS_USUARIO     = 'arbitraje_usuario_activo';
 const LS_TODOS       = 'arbitraje_usuarios_lista';
 const LS_DIRECTORIO  = 'arbitraje_directorio_v1';
@@ -979,55 +979,53 @@ async function enviarAlSRI() {
     if (!opXML) { setSriStatus('⚠️ No hay operación activa', 'error'); return; }
     const url = CFB_SERVER_URL;
 
-    setSriStatus('⏳ Enviando al SRI…', 'loading');
+    setSriStatus('⏳ Despertando servidor…', 'loading');
     document.getElementById('btn-enviar-sri').disabled = true;
 
-    // Leer datos del modal
-    const cedula     = document.getElementById('xml-cedula').value.trim();
-    const nombre     = document.getElementById('xml-nombre').value.trim();
-    const secuencial = parseInt(document.getElementById('xml-secuencial').value) || 1;
-    const formaPago  = document.getElementById('xml-forma-pago')?.value || '20';
-    const observacion = document.getElementById('xml-concepto').value.trim();
-    const ganancia   = parseFloat(document.getElementById('xml-ganancia')?.value) || Math.abs(opXML.ganancia || 0);
+    try {
+        // Health check primero — el servidor de Render puede estar dormido
+        await fetch(url + '/health', { signal: AbortSignal.timeout(90000) });
+    } catch(e) {
+        // Continuar igual, puede que /health no exista pero el server despierte
+    }
 
-    // Validar
-    if (!cedula || (cedula.length !== 10 && cedula.length !== 13)) {
-        setSriStatus('⚠️ Ingresá una cédula válida', 'error');
+    setSriStatus('⏳ Generando XML…', 'loading');
+
+    // Generar el XML en el cliente (igual que CFB)
+    const result = generarXML();
+    if (!result) {
         document.getElementById('btn-enviar-sri').disabled = false;
         return;
     }
+    const { xml, seq, claveAcceso } = result;
+    _xmlGenerado = xml;
+    _claveAccesoGenerada = claveAcceso;
+
+    // Mostrar preview
+    document.getElementById('xml-preview').textContent = xml;
+    document.getElementById('xml-preview').style.display = 'block';
+    document.getElementById('xml-preview-label').style.display = 'block';
+
+    setSriStatus('⏳ Enviando al SRI…', 'loading');
 
     try {
-        const resp = await fetch(url + '/arbitraje/factura', {
+        const resp = await fetch(url + '/firmar-enviar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                datos: {
-                    monto:       ganancia.toFixed(2),
-                    fecha:       opXML.fechaISO || new Date().toISOString(),
-                    cedula,
-                    nombre,
-                    secuencial,
-                    formaPago,
-                    observacion,
-                    estab:  '001',
-                    ptoEmi: '002'
-                }
-            }),
-            signal: AbortSignal.timeout(60000)
+            body: JSON.stringify({ xml, claveAcceso }),
+            signal: AbortSignal.timeout(120000)
         });
         const data = await resp.json();
 
         if (data.ok && (data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion)) {
             const nroAut = data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion;
             setSriStatus(`✅ AUTORIZADA · Nro: ${nroAut}`, 'ok');
-            // Incrementar secuencial
-            localStorage.setItem('arbitraje_seq_fact', String(secuencial + 1));
-            localStorage.setItem('cfb_seq_fact_v1',    String(secuencial + 1));
+            localStorage.setItem('arbitraje_seq_fact', String(seq + 1));
+            localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
             if (opXML) {
                 opXML.sriAutorizado = true;
                 opXML.sriNroAut     = nroAut;
-                opXML.xmlSeq        = `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(secuencial).padStart(9,'0')}`;
+                opXML.xmlSeq        = `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`;
                 guardarHistorialUsuario();
                 renderHistorial();
             }
@@ -1113,71 +1111,70 @@ function generarXML() {
     const dv = calcularDigitoVerificador(claveBase);
     const claveAcceso = `${claveBase}${dv}`;
 
-    const xml = `<factura id="comprobante" version="2.1.0">
-  <infoTributaria>
-    <ambiente>${EMISOR.ambiente}</ambiente>
-    <tipoEmision>${EMISOR.tipoEmision}</tipoEmision>
-    <razonSocial>${escXML(EMISOR.razonSocial)}</razonSocial>
-    <nombreComercial>${escXML(EMISOR.nombreComercial)}</nombreComercial>
-    <ruc>${EMISOR.ruc}</ruc>
-    <claveAcceso>${claveAcceso}</claveAcceso>
-    <codDoc>${EMISOR.codDoc}</codDoc>
-    <estab>${EMISOR.estab}</estab>
-    <ptoEmi>${EMISOR.ptoEmi}</ptoEmi>
-    <secuencial>${secStr}</secuencial>
-    <dirMatriz>${escXML(EMISOR.dirMatriz)}</dirMatriz>
-  </infoTributaria>
-  <infoFactura>
-    <fechaEmision>${fechaXML}</fechaEmision>
-    <dirEstablecimiento>${escXML(EMISOR.dirMatriz)}</dirEstablecimiento>
-    <obligadoContabilidad>${EMISOR.obligadoContabilidad}</obligadoContabilidad>
-    <regimenMicroempresa>NEGOCIOS POPULARES</regimenMicroempresa>
-    <tipoIdentificacionComprador>07</tipoIdentificacionComprador>
-    <razonSocialComprador>${escXML(nombre)}</razonSocialComprador>
-    <identificacionComprador>${cedula}</identificacionComprador>
-    <totalSinImpuestos>${montoNum.toFixed(2)}</totalSinImpuestos>
-    <totalDescuento>0.00</totalDescuento>
-    <totalConImpuestos>
-          <totalImpuesto>
-            <codigo>2</codigo><codigoPorcentaje>0</codigoPorcentaje>
-            <baseImponible>${montoNum.toFixed(2)}</baseImponible>
-            <valor>0.00</valor>
-          </totalImpuesto>
-    </totalConImpuestos>
-    <propina>0.00</propina>
-    <importeTotal>${montoNum.toFixed(2)}</importeTotal>
-    <moneda>DOLAR</moneda>
-    <pagos>
-      <pago>
-        <formaPago>${document.getElementById('xml-forma-pago')?.value || '20'}</formaPago>
-        <total>${montoNum.toFixed(2)}</total>
-        <plazo>0</plazo>
-        <unidadTiempo>dias</unidadTiempo>
-      </pago>
-    </pagos>
-  </infoFactura>
-  <detalles>
-      <detalle>
-        <codigoPrincipal>SRV-001</codigoPrincipal>
-        <descripcion>SERVICIOS PRESTADOS</descripcion>
-        <cantidad>1.000000</cantidad>
-        <precioUnitario>${montoNum.toFixed(6)}</precioUnitario>
-        <descuento>0.00</descuento>
-        <precioTotalSinImpuesto>${montoNum.toFixed(2)}</precioTotalSinImpuesto>
-        <impuestos>
-          <impuesto>
-            <codigo>2</codigo>
-            <codigoPorcentaje>0</codigoPorcentaje>
-            <tarifa>0.00</tarifa>
-            <baseImponible>${montoNum.toFixed(2)}</baseImponible>
-            <valor>0.00</valor>
-          </impuesto>
-        </impuestos>
-      </detalle>
-  </detalles>
-  <infoAdicional>
-    <campoAdicional nombre="OBSERVACION">${escXML(concepto || 'SERVICIO DE INTERMEDIACION')}</campoAdicional>
-  </infoAdicional>
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><factura id="comprobante" version="1.1.0">
+    <infoTributaria>
+        <ambiente>${EMISOR.ambiente}</ambiente>
+        <tipoEmision>${EMISOR.tipoEmision}</tipoEmision>
+        <razonSocial>${escXML(EMISOR.razonSocial)}</razonSocial>
+        <nombreComercial>${escXML(EMISOR.nombreComercial)}</nombreComercial>
+        <ruc>${EMISOR.ruc}</ruc>
+        <claveAcceso>${claveAcceso}</claveAcceso>
+        <codDoc>${EMISOR.codDoc}</codDoc>
+        <estab>${EMISOR.estab}</estab>
+        <ptoEmi>${EMISOR.ptoEmi}</ptoEmi>
+        <secuencial>${secStr}</secuencial>
+        <dirMatriz>${escXML(EMISOR.dirMatriz)}</dirMatriz>
+        <contribuyenteRimpe>CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE</contribuyenteRimpe>
+    </infoTributaria>
+    <infoFactura>
+        <fechaEmision>${fechaXML}</fechaEmision>
+        <dirEstablecimiento>${escXML(EMISOR.dirMatriz)}</dirEstablecimiento>
+        <obligadoContabilidad>${EMISOR.obligadoContabilidad}</obligadoContabilidad>
+        <tipoIdentificacionComprador>07</tipoIdentificacionComprador>
+        <razonSocialComprador>${escXML(nombre)}</razonSocialComprador>
+        <identificacionComprador>${cedula}</identificacionComprador>
+        <totalSinImpuestos>${montoNum.toFixed(2)}</totalSinImpuestos>
+        <totalDescuento>0.00</totalDescuento>
+        <totalConImpuestos>
+            <totalImpuesto>
+                <codigo>2</codigo>
+                <codigoPorcentaje>0</codigoPorcentaje>
+                <baseImponible>${montoNum.toFixed(2)}</baseImponible>
+                <valor>0.00</valor>
+            </totalImpuesto>
+        </totalConImpuestos>
+        <propina>0</propina>
+        <importeTotal>${montoNum.toFixed(2)}</importeTotal>
+        <moneda>DOLAR</moneda>
+        <pagos>
+            <pago>
+                <formaPago>${document.getElementById('xml-forma-pago')?.value || '20'}</formaPago>
+                <total>${montoNum.toFixed(2)}</total>
+            </pago>
+        </pagos>
+    </infoFactura>
+    <detalles>
+        <detalle>
+            <codigoPrincipal>SRV-001</codigoPrincipal>
+            <descripcion>SERVICIOS PRESTADOS</descripcion>
+            <cantidad>1.000000</cantidad>
+            <precioUnitario>${montoNum.toFixed(6)}</precioUnitario>
+            <descuento>0.00</descuento>
+            <precioTotalSinImpuesto>${montoNum.toFixed(2)}</precioTotalSinImpuesto>
+            <impuestos>
+                <impuesto>
+                    <codigo>2</codigo>
+                    <codigoPorcentaje>0</codigoPorcentaje>
+                    <tarifa>0.00</tarifa>
+                    <baseImponible>${montoNum.toFixed(2)}</baseImponible>
+                    <valor>0.00</valor>
+                </impuesto>
+            </impuestos>
+        </detalle>
+    </detalles>
+    <infoAdicional>
+        <campoAdicional nombre="Referencia">${escXML(concepto || 'ARBITRAJE CRIPTO')}</campoAdicional>
+    </infoAdicional>
 </factura>`;
 
     return { xml, seq, claveAcceso, monto: montoNum.toFixed(2) };
