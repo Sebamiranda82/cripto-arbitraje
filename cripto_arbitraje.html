@@ -475,6 +475,10 @@
             <button class="btn-xml btn-sri" id="btn-enviar-sri" onclick="enviarAlSRI()">
                 🚀 Enviar al SRI
             </button>
+            <button class="btn-xml" onclick="nuevaFactura()"
+                style="background:#374151; color:#e2e8f0; border:none; border-radius:7px; padding:6px 12px; font-size:11px; font-weight:700; cursor:pointer;">
+                ✚ Nueva Factura
+            </button>
             <button class="btn-xml btn-close" onclick="cerrarModal()">✕ Cancelar</button>
         </div>
 
@@ -1035,6 +1039,30 @@ function actualizarObservacion() {
     lineas.push('El total de la factura representa la comisión cobrada por el servicio');
 
     document.getElementById('xml-concepto').value = lineas.join('\n');
+}
+
+function nuevaFactura() {
+    // Resetear todo el modal para la siguiente factura
+    document.getElementById('xml-cedula').value  = '';
+    document.getElementById('xml-nombre').value  = '';
+    document.getElementById('xml-concepto').value = '';
+    document.getElementById('obs-importe').value  = '';
+    document.getElementById('obs-fecha').value    = '';
+    document.getElementById('obs-banco').value    = '';
+    document.getElementById('xml-fecha-emision').value = new Date().toISOString().slice(0,10);
+    document.getElementById('xml-ganancia').value = '';
+    document.getElementById('sri-status').style.display   = 'none';
+    document.getElementById('btn-ver-factura').style.display = 'none';
+    document.getElementById('btn-enviar-sri').style.display  = 'none';
+    document.getElementById('xml-preview').style.display     = 'none';
+    document.getElementById('xml-preview-label').style.display = 'none';
+    _xmlGenerado = null;
+    _claveAccesoGenerada = null;
+    _facturaAutorizada   = null;
+    opXML = null;
+
+    // Cerrar modal y volver al historial para elegir otra operación
+    cerrarModal();
 }
 
 function abrirFacturaEnSRI() {
