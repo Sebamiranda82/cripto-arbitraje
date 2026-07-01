@@ -446,6 +446,20 @@
             </select>
         </div>
 
+        <!-- Leer Excel de transferencias (opcional) -->
+        <div style="margin-bottom:16px;">
+            <button onclick="document.getElementById('excel-transferencias').click()"
+                style="background:#1d4ed8; color:#fff; border:none; border-radius:8px; padding:8px 14px;
+                       font-size:12px; font-weight:700; cursor:pointer; width:100%;">
+                📊 Leer Excel de transferencias
+            </button>
+            <input type="file" id="excel-transferencias" accept=".xlsx,.xls,.csv" style="display:none;"
+                onchange="leerExcelTransferencias(event)">
+            <div id="lista-transferencias" style="display:none; margin-top:10px; max-height:200px; overflow-y:auto;
+                 background:#0f1117; border:1px solid #2d3748; border-radius:8px;">
+            </div>
+        </div>
+
         <div style="margin-bottom:16px;">
             <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">💵 IMPORTE DE TRANSFERENCIA (USD)</label>
             <input class="modal-input" id="obs-importe" type="number" step="0.01" placeholder="Ej: 250" style="font-size:13px;">
@@ -1019,6 +1033,123 @@ let _facturaAutorizada = null;
 
 // Meses en español para formatear fecha
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+// ── Leer Excel de transferencias bancarias ──
+const MESES_PARSE = {
+    'ene':0,'feb':1,'mar':2,'abr':3,'may':4,'jun':5,
+    'jul':6,'ago':7,'sep':8,'oct':9,'nov':10,'dic':11
+};
+
+function parsearFechaExcel(str) {
+    // Formatos: "08 jun. 2026", "08/06/2026", "2026-06-08"
+    if (!str) return '';
+    str = String(str).trim().toLowerCase().replace(/\./g,'');
+    // "08 jun 2026"
+    const m1 = str.match(/(\d{1,2})\s+([a-z]{3})\s+(\d{4})/);
+    if (m1) {
+        const mes = MESES_PARSE[m1[2]];
+        if (mes !== undefined) {
+            return `${m1[3]}-${String(mes+1).padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
+        }
+    }
+    // "08/06/2026"
+    const m2 = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m2) return `${m2[3]}-${m2[2].padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
+    // "2026-06-08"
+    const m3 = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m3) return str.slice(0,10);
+    return '';
+}
+
+function normalizarBanco(str) {
+    if (!str) return '';
+    const s = String(str).toUpperCase();
+    if (s.includes('PAC')) return 'Pacifico';
+    if (s.includes('BOL')) return 'Bolivariano';
+    if (s.includes('INT')) return 'Internacional';
+    return String(str).trim();
+}
+
+function leerExcelTransferencias(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    event.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const wb   = XLSX.read(e.target.result, { type: 'array' });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+
+        // Detectar columnas: buscar fila con datos numéricos en alguna columna
+        const transferencias = [];
+        for (const row of rows) {
+            if (!row || row.length < 2) continue;
+            // Buscar importe (columna con $)
+            let banco = '', fecha = '', importe = '';
+            for (const cell of row) {
+                const s = String(cell).trim();
+                if (!s) continue;
+                // Importe: número o empieza con + o $
+                if (/^[+\-]?\$?[\d,]+\.?\d*$/.test(s.replace(/\s/g,''))) {
+                    importe = s.replace(/[+$,]/g,'').trim();
+                }
+                // Fecha
+                else if (/\d{1,2}[\s\/]\w+[\s\/]\d{4}|\d{4}-\d{2}-\d{2}/.test(s)) {
+                    fecha = parsearFechaExcel(s);
+                }
+                // Banco
+                else if (/PAC|BOL|INT|BANCO|PACIFICO|BOLIVARIANO|INTERNACIONAL/i.test(s)) {
+                    banco = normalizarBanco(s);
+                }
+            }
+            if (importe && (fecha || banco)) {
+                transferencias.push({ banco, fecha, importe });
+            }
+        }
+
+        mostrarListaTransferencias(transferencias);
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function mostrarListaTransferencias(lista) {
+    const div = document.getElementById('lista-transferencias');
+    if (!lista.length) {
+        div.style.display = 'block';
+        div.innerHTML = '<div style="padding:12px;color:#4a5568;font-size:12px;">No se encontraron transferencias en el archivo.</div>';
+        return;
+    }
+    div.style.display = 'block';
+    div.innerHTML = lista.map((t, i) => `
+        <div onclick="seleccionarTransferencia(${i})" data-idx="${i}"
+            style="padding:10px 14px; border-bottom:1px solid #1a1f2e; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
+            onmouseover="this.style.background='#1a1f2e'" onmouseout="this.style.background=''">
+            <span style="font-size:12px; color:#94a3b8;">${t.banco || '-'}</span>
+            <span style="font-size:12px; color:#e2e8f0;">${t.fecha ? (() => { const [y,m,d]=t.fecha.split('-'); return `${d}/${m}/${y}`; })() : '-'}</span>
+            <span style="font-size:13px; font-weight:700; color:#4ade80;">$${parseFloat(t.importe||0).toFixed(2)}</span>
+        </div>
+    `).join('');
+
+    // Guardar en memoria para acceso por índice
+    div._transferencias = lista;
+}
+
+function seleccionarTransferencia(idx) {
+    const div = document.getElementById('lista-transferencias');
+    const lista = div._transferencias;
+    if (!lista || !lista[idx]) return;
+    const t = lista[idx];
+
+    if (t.importe) document.getElementById('obs-importe').value = parseFloat(t.importe).toFixed(2);
+    if (t.fecha)   document.getElementById('obs-fecha').value   = t.fecha;
+    if (t.banco)   document.getElementById('obs-banco').value   = t.banco;
+
+    actualizarObservacion();
+
+    // Ocultar lista y resaltar selección
+    div.style.display = 'none';
+}
 
 function actualizarObservacion() {
     const importe = document.getElementById('obs-importe').value.trim();
