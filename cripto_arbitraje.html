@@ -1083,9 +1083,9 @@ function abrirModalXML(idxPantalla) {
         </div>
     `;
 
-    // Precargar fecha desde la operación (editable)
-    const fechaOp = opXML.fechaISO ? opXML.fechaISO.slice(0,10) : new Date().toISOString().slice(0,10);
-    document.getElementById('xml-fecha-emision').value = fechaOp;
+    // Fecha de emisión = HOY (debe coincidir con fecha de autorización del SRI)
+    const hoy = new Date().toISOString().slice(0,10);
+    document.getElementById('xml-fecha-emision').value = hoy;
 
     // URL servidor — fix: evitar que aparezca "null" literal
     const urlGuardada = localStorage.getItem(LS_SRI_URL);
