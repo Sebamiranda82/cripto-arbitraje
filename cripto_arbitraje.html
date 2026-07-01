@@ -1031,7 +1031,7 @@ function actualizarObservacion() {
         fechaTexto = `${d}-${MESES_ES[parseInt(m)-1]}-${y}`;
     }
 
-    const lineas = ['Referencia:'];
+    const lineas = [];
     if (importe)     lineas.push(`Transferencia recibida (usd): ${importe}`);
     if (fechaTexto)  lineas.push(`Fecha: ${fechaTexto}`);
     if (banco)       lineas.push(`Banco: ${banco}`);
