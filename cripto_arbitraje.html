@@ -151,6 +151,23 @@
 
 <div style="max-width:800px; margin:0 auto; padding:24px 16px;">
 
+    <!-- TABS NAVEGACIÓN -->
+    <div style="display:flex; gap:4px; margin-bottom:20px; background:#0f1117; border-radius:10px; padding:4px;">
+        <button onclick="mostrarTab('tab-operaciones')" id="btn-tab-operaciones"
+            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+                   background:#1a1f2e; color:#f7c948; letter-spacing:0.5px;">
+            ₿ Operaciones
+        </button>
+        <button onclick="mostrarTab('tab-facturas')" id="btn-tab-facturas"
+            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+                   background:transparent; color:#718096; letter-spacing:0.5px;">
+            📄 Facturas SRI
+        </button>
+    </div>
+
+    <!-- TAB: OPERACIONES (contenido existente) -->
+    <div id="tab-operaciones">
+
     <!-- CALCULADORA -->
     <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:24px; margin-bottom:20px;">
         <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px; margin-bottom:20px;">NUEVA OPERACIÓN</div>
@@ -335,6 +352,44 @@
 
     <div id="empty-msg" style="text-align:center; color:#4a5568; padding:40px; font-size:13px;">
         Completá los campos y registrá tu primera operación
+    </div>
+
+    </div><!-- fin tab-operaciones -->
+
+    <!-- TAB: FACTURAS SRI -->
+    <div id="tab-facturas" style="display:none;">
+        <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+                <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">FACTURAS SRI — FIRMADAS Y ENVIADAS</div>
+                <button onclick="exportarFacturasExcel()"
+                    style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
+                    ⬇ Exportar Excel
+                </button>
+            </div>
+
+            <!-- Tabla estilo Excel -->
+            <div style="overflow-x:auto;">
+                <table id="tabla-facturas" style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead>
+                        <tr style="background:#0f1117; color:#94a3b8; text-align:left;">
+                            <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">#</th>
+                            <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Fecha Emisión</th>
+                            <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Número</th>
+                            <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Cliente</th>
+                            <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap; text-align:right;">Total USD</th>
+                            <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Nro. Autorización</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-facturas">
+                        <tr>
+                            <td colspan="6" style="padding:30px; text-align:center; color:#4a5568;">
+                                No hay facturas autorizadas aún
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -890,6 +945,62 @@ function renderHistorial() {
 /* ══════════════════════════════
    MODAL XML SRI
 ══════════════════════════════ */
+const LS_FACTURAS_SRI = 'arbitraje_facturas_sri_v1';
+let facturasSRI = [];
+try { facturasSRI = JSON.parse(localStorage.getItem(LS_FACTURAS_SRI) || '[]'); } catch(e) { facturasSRI = []; }
+
+function mostrarTab(tab) {
+    document.getElementById('tab-operaciones').style.display = tab === 'tab-operaciones' ? 'block' : 'none';
+    document.getElementById('tab-facturas').style.display    = tab === 'tab-facturas'    ? 'block' : 'none';
+    document.getElementById('btn-tab-operaciones').style.background = tab === 'tab-operaciones' ? '#1a1f2e' : 'transparent';
+    document.getElementById('btn-tab-operaciones').style.color      = tab === 'tab-operaciones' ? '#f7c948' : '#718096';
+    document.getElementById('btn-tab-facturas').style.background    = tab === 'tab-facturas'    ? '#1a1f2e' : 'transparent';
+    document.getElementById('btn-tab-facturas').style.color         = tab === 'tab-facturas'    ? '#f7c948' : '#718096';
+    if (tab === 'tab-facturas') renderTablaFacturas();
+}
+
+function guardarFacturaSRI(datos) {
+    facturasSRI.unshift(datos);
+    localStorage.setItem(LS_FACTURAS_SRI, JSON.stringify(facturasSRI));
+}
+
+function renderTablaFacturas() {
+    const tbody = document.getElementById('tbody-facturas');
+    if (!tbody) return;
+    if (!facturasSRI.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:#4a5568;">No hay facturas autorizadas aún</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = facturasSRI.map((f, i) => `
+        <tr style="border-bottom:1px solid #1a1f2e;${i%2===0?'background:#0f1117':''};">
+            <td style="padding:10px 12px;color:#718096;">${facturasSRI.length-i}</td>
+            <td style="padding:10px 12px;color:#e2e8f0;white-space:nowrap;">${f.fechaEmision||'-'}</td>
+            <td style="padding:10px 12px;color:#60a5fa;white-space:nowrap;font-family:monospace;">${f.numero||'-'}</td>
+            <td style="padding:10px 12px;color:#94a3b8;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.cliente||'CONSUMIDOR FINAL'}</td>
+            <td style="padding:10px 12px;color:#4ade80;text-align:right;font-weight:700;">$${parseFloat(f.total||0).toFixed(2)}</td>
+            <td style="padding:10px 12px;color:#718096;font-family:monospace;font-size:10px;white-space:nowrap;" title="${f.nroAut||''}">${f.nroAut?f.nroAut.slice(0,24)+'...':'-'}</td>
+        </tr>
+    `).join('');
+}
+
+function exportarFacturasExcel() {
+    if (!facturasSRI.length) return;
+    const filas = facturasSRI.map((f,i) => ({
+        'N°': facturasSRI.length-i,
+        'Fecha Emisión': f.fechaEmision||'',
+        'Número': f.numero||'',
+        'Cliente': f.cliente||'CONSUMIDOR FINAL',
+        'Total USD': parseFloat(f.total||0),
+        'Nro. Autorización': f.nroAut||'',
+        'Fecha Autorización': f.fechaAut||''
+    }));
+    const ws = XLSX.utils.json_to_sheet(filas);
+    ws['!cols'] = [{wch:5},{wch:16},{wch:22},{wch:25},{wch:12},{wch:52},{wch:20}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Facturas SRI');
+    XLSX.writeFile(wb, `facturas_sri_${usuarioActivo}.xlsx`);
+}
+
 const CFB_SERVER_URL = 'https://cfb-servidor.onrender.com';
 const LS_SRI_URL     = 'cfb_sri_server_url';
 
@@ -1130,6 +1241,20 @@ async function enviarAlSRI() {
                 formaPago: document.getElementById('xml-forma-pago').options[document.getElementById('xml-forma-pago').selectedIndex].text
             };
             document.getElementById('btn-ver-factura').style.display = 'inline-block';
+
+            // Guardar en registro de facturas SRI
+            const fechaEmisionInput = document.getElementById('xml-fecha-emision')?.value;
+            let fechaEmisionFmt = fechaEmisionInput
+                ? (() => { const [y,m,d]=fechaEmisionInput.split('-'); return `${d}/${m}/${y}`; })()
+                : opXML?.fecha?.split(',')[0] || '';
+            guardarFacturaSRI({
+                fechaEmision: fechaEmisionFmt,
+                numero:       `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`,
+                cliente:      document.getElementById('xml-nombre').value || 'CONSUMIDOR FINAL',
+                total:        document.getElementById('xml-ganancia').value,
+                nroAut,
+                fechaAut:     new Date(fechaAut).toLocaleString('es-EC',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+            });
 
             localStorage.setItem('arbitraje_seq_fact', String(seq + 1));
             localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
