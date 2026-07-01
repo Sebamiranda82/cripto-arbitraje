@@ -1060,7 +1060,9 @@ function nuevaFactura() {
     _facturaAutorizada   = null;
     // NO resetear opXML — se necesita para seguir generando XML de la misma operación
 
-    // Resetear ganancia y poner foco ahí
+    // Incrementar secuencial
+    const seqActual = parseInt(document.getElementById('xml-secuencial').value) || 1;
+    document.getElementById('xml-secuencial').value = seqActual + 1;
     const inpGanancia = document.getElementById('xml-ganancia');
     if (inpGanancia) {
         inpGanancia.value = '';
