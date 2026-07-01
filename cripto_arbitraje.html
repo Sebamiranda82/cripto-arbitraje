@@ -1042,27 +1042,37 @@ function actualizarObservacion() {
 }
 
 function nuevaFactura() {
-    // Resetear todo el modal para la siguiente factura
-    document.getElementById('xml-cedula').value  = '';
-    document.getElementById('xml-nombre').value  = '';
+    // Resetear campos sin cerrar el modal
+    document.getElementById('xml-cedula').value   = '';
+    document.getElementById('xml-nombre').value   = '';
     document.getElementById('xml-concepto').value = '';
     document.getElementById('obs-importe').value  = '';
     document.getElementById('obs-fecha').value    = '';
     document.getElementById('obs-banco').value    = '';
     document.getElementById('xml-fecha-emision').value = new Date().toISOString().slice(0,10);
-    document.getElementById('xml-ganancia').value = '';
-    document.getElementById('sri-status').style.display   = 'none';
-    document.getElementById('btn-ver-factura').style.display = 'none';
-    document.getElementById('btn-enviar-sri').style.display  = 'none';
-    document.getElementById('xml-preview').style.display     = 'none';
+    document.getElementById('sri-status').style.display      = 'none';
+    document.getElementById('btn-ver-factura').style.display  = 'none';
+    document.getElementById('btn-enviar-sri').style.display   = 'none';
+    document.getElementById('xml-preview').style.display      = 'none';
     document.getElementById('xml-preview-label').style.display = 'none';
     _xmlGenerado = null;
     _claveAccesoGenerada = null;
     _facturaAutorizada   = null;
     opXML = null;
 
-    // Cerrar modal y volver al historial para elegir otra operación
-    cerrarModal();
+    // Resetear ganancia y poner foco ahí
+    const inpGanancia = document.getElementById('xml-ganancia');
+    if (inpGanancia) {
+        inpGanancia.value = '';
+        inpGanancia.style.border = '2px solid #f7c948';
+        setTimeout(() => {
+            inpGanancia.focus();
+            inpGanancia.style.border = '1px solid #166534';
+        }, 100);
+    }
+
+    // Scroll al inicio del modal
+    document.querySelector('.modal-box')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function abrirFacturaEnSRI() {
