@@ -1224,6 +1224,27 @@ function setSriStatus(msg, tipo) {
 
 async function enviarAlSRI() {
     if (!opXML) { setSriStatus('⚠️ No hay operación activa', 'error'); return; }
+
+    // ── Control 1: fecha de emisión debe ser hoy ──
+    const fechaInput = document.getElementById('xml-fecha-emision')?.value;
+    const hoy = new Date().toISOString().slice(0,10);
+    if (fechaInput && fechaInput !== hoy) {
+        const [y,m,d] = fechaInput.split('-');
+        const [yh,mh,dh] = hoy.split('-');
+        setSriStatus(`❌ Fecha de emisión (${d}/${m}/${y}) debe ser hoy (${dh}/${mh}/${yh}). Corregila antes de enviar.`, 'error');
+        return;
+    }
+
+    // ── Control 2: secuencial no usado previamente ──
+    const seqActual = parseInt(document.getElementById('xml-secuencial').value) || 1;
+    const seqStr = `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seqActual).padStart(9,'0')}`;
+    const yaUsado = facturasSRI.some(f => f.numero === seqStr);
+    if (yaUsado) {
+        setSriStatus(`❌ Secuencial ${seqStr} ya fue usado. Cambiá el número.`, 'error');
+        document.getElementById('xml-secuencial').focus();
+        return;
+    }
+
     const url = CFB_SERVER_URL;
 
     setSriStatus('⏳ Despertando servidor…', 'loading');
@@ -1481,6 +1502,26 @@ function escXML(str) {
 }
 
 function generarYDescargarXML() {
+    // ── Control 1: fecha de emisión debe ser hoy ──
+    const fechaInput = document.getElementById('xml-fecha-emision')?.value;
+    const hoy = new Date().toISOString().slice(0,10);
+    if (fechaInput && fechaInput !== hoy) {
+        const [y,m,d] = fechaInput.split('-');
+        const [yh,mh,dh] = hoy.split('-');
+        if (!confirm(`⚠️ La fecha de emisión (${d}/${m}/${y}) no es hoy (${dh}/${mh}/${yh}).\n\nEl SRI exige que la fecha de emisión coincida con la fecha de autorización.\n\n¿Querés cambiarla a hoy y continuar?`)) return;
+        document.getElementById('xml-fecha-emision').value = hoy;
+    }
+
+    // ── Control 2: secuencial no usado previamente ──
+    const seqActual = parseInt(document.getElementById('xml-secuencial').value) || 1;
+    const seqStr = `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seqActual).padStart(9,'0')}`;
+    const yaUsado = facturasSRI.some(f => f.numero === seqStr);
+    if (yaUsado) {
+        alert(`⚠️ El número secuencial ${seqStr} ya fue usado en una factura anterior.\n\nCambiá el número antes de continuar.`);
+        document.getElementById('xml-secuencial').focus();
+        return;
+    }
+
     const result = generarXML();
     if (!result) return;
     const { xml, seq, claveAcceso, monto } = result;
