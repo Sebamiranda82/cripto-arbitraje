@@ -568,6 +568,13 @@ const EMISOR = {
    key: arbitraje_historial_v1_NOMBRE
 ══════════════════════════════ */
 const APP_VERSION    = 'v3.4';
+
+// Ecuador = UTC-5 siempre (no usa horario de verano)
+function hoyEcuador() {
+    const ahora = new Date();
+    const ec = new Date(ahora.getTime() - 5 * 60 * 60 * 1000);
+    return ec.toISOString().slice(0, 10);
+}
 const LS_USUARIO     = 'arbitraje_usuario_activo';
 const LS_TODOS       = 'arbitraje_usuarios_lista';
 const LS_DIRECTORIO  = 'arbitraje_directorio_v1';
@@ -1180,7 +1187,7 @@ function nuevaFactura() {
     document.getElementById('obs-importe').value  = '';
     // obs-fecha se mantiene igual que estaba
     document.getElementById('obs-banco').value    = '';
-    document.getElementById('xml-fecha-emision').value = new Date().toISOString().slice(0,10);
+    document.getElementById('xml-fecha-emision').value = hoyEcuador();
     document.getElementById('sri-status').style.display      = 'none';
     document.getElementById('btn-ver-factura').style.display  = 'none';
     document.getElementById('btn-enviar-sri').style.display   = 'none';
@@ -1255,7 +1262,7 @@ function abrirModalXML(idxPantalla) {
     `;
 
     // Fecha de emisión = HOY (debe coincidir con fecha de autorización del SRI)
-    const hoy = new Date().toISOString().slice(0,10);
+    const hoy = hoyEcuador();
     document.getElementById('xml-fecha-emision').value = hoy;
 
     // URL servidor — fix: evitar que aparezca "null" literal
@@ -1290,7 +1297,7 @@ function abrirModalXML(idxPantalla) {
     if (opXML.fechaISO) {
         document.getElementById('obs-fecha').value = opXML.fechaISO.slice(0,10);
     } else {
-        document.getElementById('obs-fecha').value = new Date().toISOString().slice(0,10);
+        document.getElementById('obs-fecha').value = hoyEcuador();
     }
     document.getElementById('obs-banco').value = '';
 
@@ -1358,7 +1365,7 @@ async function enviarAlSRI() {
 
     // ── Control 1: fecha de emisión debe ser hoy ──
     const fechaInput = document.getElementById('xml-fecha-emision')?.value;
-    const hoy = new Date().toISOString().slice(0,10);
+    const hoy = hoyEcuador();
     if (fechaInput && fechaInput !== hoy) {
         const [y,m,d] = fechaInput.split('-');
         const [yh,mh,dh] = hoy.split('-');
@@ -1635,7 +1642,7 @@ function escXML(str) {
 function generarYDescargarXML() {
     // ── Control 1: fecha de emisión debe ser hoy ──
     const fechaInput = document.getElementById('xml-fecha-emision')?.value;
-    const hoy = new Date().toISOString().slice(0,10);
+    const hoy = hoyEcuador();
     if (fechaInput && fechaInput !== hoy) {
         const [y,m,d] = fechaInput.split('-');
         const [yh,mh,dh] = hoy.split('-');
