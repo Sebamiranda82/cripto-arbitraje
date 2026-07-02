@@ -168,12 +168,11 @@
     <!-- TAB: OPERACIONES (contenido existente) -->
     <div id="tab-operaciones">
 
-    <!-- CALCULADORA -->
+    <!-- CALCULADORA NUEVA: 3 registros independientes -->
     <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:24px; margin-bottom:20px;">
-        <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px; margin-bottom:20px;">NUEVA OPERACIÓN</div>
 
         <!-- COMISIÓN BINANCE -->
-        <div style="background:#0f1117; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div style="background:#0f1117; border-radius:8px; padding:10px 14px; margin-bottom:16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
             <span style="font-size:11px; color:#718096;">COMISIÓN BINANCE:</span>
             <select id="select-comision" onchange="cambiarComision(this.value)"
                 style="background:#1a1f2e; border:1px solid #2d3748; border-radius:6px; padding:6px 10px; color:#f7c948; font-size:12px; font-weight:700; outline:none; cursor:pointer;">
@@ -185,96 +184,158 @@
                 placeholder="ej: 0.05"
                 style="display:none; background:#1a1f2e; border:1px solid #f7c948; border-radius:6px;
                        padding:6px 10px; color:#f7c948; font-size:12px; width:100px; outline:none;"
-                oninput="COMISION=parseFloat(this.value)/100||0.00038; calcular()">
+                oninput="COMISION=parseFloat(this.value)/100||0.00038;">
             <span id="comision-badge" style="font-size:11px; color:#4a5568;"></span>
         </div>
-            <span class="label-sm">Fecha de la operación <span style="color:#4a5568;">(podés cargar operaciones pasadas)</span></span>
+
+        <!-- SELECTOR TIPO DE REGISTRO -->
+        <div style="display:flex; gap:4px; margin-bottom:20px; background:#0f1117; border-radius:10px; padding:4px;">
+            <button onclick="mostrarRegistro('compra')" id="btn-reg-compra"
+                style="flex:1; padding:9px; border:none; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; background:#1a2744; color:#60a5fa;">
+                ↙ COMPRA
+            </button>
+            <button onclick="mostrarRegistro('venta-binance')" id="btn-reg-vb"
+                style="flex:1; padding:9px; border:none; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; background:transparent; color:#718096;">
+                ↗ VENTA BINANCE
+            </button>
+            <button onclick="mostrarRegistro('venta-externa')" id="btn-reg-ve"
+                style="flex:1; padding:9px; border:none; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; background:transparent; color:#718096;">
+                💱 VENTA EXTERNA
+            </button>
+        </div>
+
+        <!-- FECHA -->
+        <label style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+            <span class="label-sm">Fecha y hora de la operación</span>
             <input class="input-field" id="fecha-op" type="datetime-local" style="font-size:13px;">
         </label>
 
-        <!-- PASO 1 -->
-        <div class="step-box step-blue">
-            <div style="font-size:11px; color:#3b82f6; font-weight:700; margin-bottom:12px; letter-spacing:1px;">① COMPRA EN BINANCE (USD → USDT)</div>
-            <label><span class="label-sm">USD a invertir</span>
-                <input class="input-field" id="monto-usd" type="number" placeholder="Ej: 500" oninput="calcular()">
-            </label>
-            <label style="margin-top:12px; display:block;"><span class="label-sm">Precio USDT en USD</span>
-                <input class="input-field" id="precio-compra" type="number" placeholder="Ej: 1.004" oninput="calcular()">
-            </label>
-            <div class="result-row" id="res-paso1" style="display:none;">
-                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
-                    <span style="color:#60a5fa; font-size:12px;">USDT netos: <strong id="usdt-netos">-</strong></span>
-                    <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
-                        <span style="color:#ef4444; font-size:11px;">Comisión compra:</span>
-                        <input id="comision-compra" type="number" step="0.00001"
-                            style="background:#1a0a0a; border:1px solid #7f1d1d; border-radius:6px; padding:4px 8px; color:#f87171; font-size:12px; font-weight:700; width:90px; outline:none; text-align:right;"
-                            oninput="recalcularDesdeComision()"
-                            title="Editá este valor si Binance cobró distinto">
-                        <span style="color:#ef4444; font-size:11px;">USDT</span>
+        <!-- ① COMPRA -->
+        <div id="reg-compra">
+            <div class="step-box step-blue">
+                <div style="font-size:11px; color:#3b82f6; font-weight:700; margin-bottom:12px; letter-spacing:1px;">① COMPRA EN BINANCE (USD → USDT)</div>
+                <label><span class="label-sm">USD a invertir</span>
+                    <input class="input-field" id="monto-usd" type="number" placeholder="Ej: 200" oninput="calcularCompra()">
+                </label>
+                <label style="margin-top:12px; display:block;"><span class="label-sm">Precio USDT en USD</span>
+                    <input class="input-field" id="precio-compra" type="number" placeholder="Ej: 0.994" oninput="calcularCompra()">
+                </label>
+                <div id="res-compra" style="display:none; margin-top:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="color:#60a5fa; font-size:12px;">USDT brutos: <strong id="usdt-brutos-display">-</strong></span>
+                        <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                            <span style="color:#ef4444; font-size:11px;">Comisión:</span>
+                            <input id="comision-compra" type="number" step="0.00001"
+                                style="background:#1a0a0a; border:1px solid #7f1d1d; border-radius:6px; padding:4px 8px; color:#f87171; font-size:12px; font-weight:700; width:85px; outline:none; text-align:right;"
+                                oninput="calcularCompra()">
+                            <span style="color:#ef4444; font-size:11px;">USDT</span>
+                        </div>
+                    </div>
+                    <div style="margin-top:6px; color:#4ade80; font-size:13px; font-weight:700;">
+                        USDT netos disponibles: <span id="usdt-netos-display">-</span>
                     </div>
                 </div>
             </div>
+            <label style="display:flex; flex-direction:column; gap:6px; margin-top:4px; margin-bottom:14px;">
+                <span class="label-sm">Nota (opcional)</span>
+                <input class="input-field" id="nota-compra" type="text" placeholder="Ej: compra matutina" style="font-size:13px;">
+            </label>
+            <button onclick="registrarCompra()" id="btn-registrar-compra"
+                style="width:100%; padding:14px; border:none; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer; background:#1d4ed8; color:#fff; letter-spacing:1px;">
+                ↙ REGISTRAR COMPRA
+            </button>
         </div>
 
-        <!-- PASO 2 -->
-        <div class="step-box step-green">
-            <div style="font-size:11px; color:#10b981; font-weight:700; margin-bottom:12px; letter-spacing:1px;">② VENTA EN BINANCE (USDT → ARS)</div>
-            <label><span class="label-sm">Precio USDT en ARS</span>
-                <input class="input-field" id="precio-venta-ars" type="number" placeholder="Ej: 1520" oninput="calcular()">
-            </label>
-            <div class="result-row" id="res-paso2" style="display:none;">
-                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
-                    <span style="color:#10b981; font-size:12px;">ARS obtenidos: <strong id="ars-obtenidos">-</strong></span>
-                    <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
-                        <span style="color:#ef4444; font-size:11px;">Comisión venta:</span>
-                        <input id="comision-venta" type="number" step="0.00001"
-                            style="background:#1a0a0a; border:1px solid #7f1d1d; border-radius:6px; padding:4px 8px; color:#f87171; font-size:12px; font-weight:700; width:90px; outline:none; text-align:right;"
-                            oninput="recalcularDesdeComision()"
-                            title="Editá este valor si Binance cobró distinto">
-                        <span style="color:#ef4444; font-size:11px;">USDT</span>
+        <!-- ② VENTA BINANCE -->
+        <div id="reg-venta-binance" style="display:none;">
+            <div class="step-box step-green">
+                <div style="font-size:11px; color:#10b981; font-weight:700; margin-bottom:12px; letter-spacing:1px;">② VENTA EN BINANCE (USDT → ARS)</div>
+
+                <!-- Código de operación -->
+                <label style="display:block; margin-bottom:12px;">
+                    <span class="label-sm">Operación a la que pertenece</span>
+                    <select class="input-field" id="op-code-vb" style="font-size:13px; cursor:pointer;">
+                        <option value="">Seleccioná operación...</option>
+                    </select>
+                    <div id="saldo-disponible-vb" style="font-size:11px; color:#4ade80; margin-top:4px;"></div>
+                </label>
+
+                <label><span class="label-sm">USDT a vender</span>
+                    <input class="input-field" id="usdt-vender" type="number" placeholder="Ej: 100" oninput="calcularVentaBinance()">
+                </label>
+                <label style="margin-top:12px; display:block;"><span class="label-sm">Precio USDT en ARS</span>
+                    <input class="input-field" id="precio-venta-ars" type="number" placeholder="Ej: 1562" oninput="calcularVentaBinance()">
+                </label>
+                <div id="res-venta-binance" style="display:none; margin-top:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="color:#10b981; font-size:12px;">ARS obtenidos: <strong id="ars-obtenidos">-</strong></span>
+                        <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
+                            <span style="color:#ef4444; font-size:11px;">Comisión:</span>
+                            <input id="comision-venta" type="number" step="0.00001"
+                                style="background:#1a0a0a; border:1px solid #7f1d1d; border-radius:6px; padding:4px 8px; color:#f87171; font-size:12px; font-weight:700; width:85px; outline:none; text-align:right;"
+                                oninput="calcularVentaBinance()">
+                            <span style="color:#ef4444; font-size:11px;">USDT</span>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- PASO 3 -->
-        <div class="step-box step-amber">
-            <div style="font-size:11px; color:#f59e0b; font-weight:700; margin-bottom:12px; letter-spacing:1px;">③ VENTA FUERA DE BINANCE (ARS → USD)</div>
-            <label><span class="label-sm">Tipo de cambio ARS por 1 USD</span>
-                <input class="input-field" id="tipo-cambio" type="number" placeholder="Ej: 1480" oninput="calcular()">
+                <!-- Checkbox venta total -->
+                <div style="margin-top:14px; display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="venta-total-cb" style="width:18px; height:18px; cursor:pointer; accent-color:#10b981;">
+                    <label for="venta-total-cb" style="font-size:12px; color:#10b981; font-weight:700; cursor:pointer;">
+                        ✅ Venta total — cierra esta operación
+                    </label>
+                </div>
+            </div>
+            <label style="display:flex; flex-direction:column; gap:6px; margin-top:4px; margin-bottom:14px;">
+                <span class="label-sm">Nota (opcional)</span>
+                <input class="input-field" id="nota-vb" type="text" placeholder="Ej: alias comprador" style="font-size:13px;">
             </label>
-            <div class="result-row" id="res-paso3" style="color:#f59e0b; display:none;">
-                USD recuperados: <strong id="usd-recuperados">-</strong>
-            </div>
-            <!-- BLUE -->
-            <div style="margin-top:12px; padding-top:10px; border-top:1px solid #2d3748; display:flex; gap:16px; align-items:center;">
-                <span style="font-size:10px; color:#718096;">DÓLAR BLUE HOY:</span>
-                <span style="font-size:10px; color:#94a3b8;">Compra: <strong id="blue-compra" style="color:#60a5fa;">cargando...</strong></span>
-                <span style="font-size:10px; color:#94a3b8;">Venta: <strong id="blue-venta" style="color:#f59e0b;">...</strong></span>
-            </div>
+            <button onclick="registrarVentaBinance()" id="btn-reg-vb-ok"
+                style="width:100%; padding:14px; border:none; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer; background:#166534; color:#4ade80; letter-spacing:1px;">
+                ↗ REGISTRAR VENTA BINANCE
+            </button>
         </div>
 
-        <!-- NOTA -->
-        <label style="display:flex; flex-direction:column; gap:6px; margin-top:4px;">
-            <span class="label-sm">Nota (opcional)</span>
-            <input class="input-field" id="nota" type="text" placeholder="Ej: op. matutina, cliente X..." style="font-size:13px;">
-        </label>
+        <!-- ③ VENTA EXTERNA -->
+        <div id="reg-venta-externa" style="display:none;">
+            <div class="step-box step-amber">
+                <div style="font-size:11px; color:#f59e0b; font-weight:700; margin-bottom:12px; letter-spacing:1px;">③ VENTA FUERA DE BINANCE (ARS → USD)</div>
 
-        <!-- RESULTADO GANANCIA -->
-        <div id="resultado" style="display:none; margin-top:20px; border-radius:12px; padding:16px; justify-content:space-between; align-items:center;">
-            <div>
-                <div style="font-size:11px; color:#94a3b8; margin-bottom:4px;">GANANCIA NETA (a facturar)</div>
-                <div id="ganancia-display" style="font-size:28px; font-weight:800;"></div>
+                <!-- Código de operación -->
+                <label style="display:block; margin-bottom:12px;">
+                    <span class="label-sm">Operación a la que pertenece</span>
+                    <select class="input-field" id="op-code-ve" style="font-size:13px; cursor:pointer;">
+                        <option value="">Seleccioná operación...</option>
+                    </select>
+                    <div id="saldo-ars-ve" style="font-size:11px; color:#f59e0b; margin-top:4px;"></div>
+                </label>
+
+                <label><span class="label-sm">ARS a convertir</span>
+                    <input class="input-field" id="ars-convertir" type="number" placeholder="Ej: 156200" oninput="calcularVentaExterna()">
+                </label>
+                <label style="margin-top:12px; display:block;"><span class="label-sm">Tipo de cambio ARS por 1 USD</span>
+                    <input class="input-field" id="tipo-cambio" type="number" placeholder="Ej: 1500" oninput="calcularVentaExterna()">
+                </label>
+                <div id="res-venta-externa" style="display:none; margin-top:10px;">
+                    <div style="color:#f59e0b; font-size:13px;">USD recuperados: <strong id="usd-recuperados">-</strong></div>
+                    <div style="color:#4ade80; font-size:14px; font-weight:700; margin-top:4px;">Comisión a facturar: <strong id="comision-facturar">-</strong></div>
+                </div>
+                <div style="margin-top:12px; padding-top:10px; border-top:1px solid #2d3748; display:flex; gap:16px; align-items:center;">
+                    <span style="font-size:10px; color:#718096;">DÓLAR BLUE HOY:</span>
+                    <span style="font-size:10px; color:#94a3b8;">Compra: <strong id="blue-compra" style="color:#60a5fa;">cargando...</strong></span>
+                    <span style="font-size:10px; color:#94a3b8;">Venta: <strong id="blue-venta" style="color:#f59e0b;">...</strong></span>
+                </div>
             </div>
-            <div style="text-align:right;">
-                <div style="font-size:11px; color:#94a3b8; margin-bottom:4px;">RENTABILIDAD</div>
-                <div id="rentabilidad-display" style="font-size:22px; font-weight:700;"></div>
-            </div>
+            <label style="display:flex; flex-direction:column; gap:6px; margin-top:4px; margin-bottom:14px;">
+                <span class="label-sm">Nota (opcional)</span>
+                <input class="input-field" id="nota-ve" type="text" placeholder="Ej: cambista, banco" style="font-size:13px;">
+            </label>
+            <button onclick="registrarVentaExterna()" id="btn-reg-ve-ok"
+                style="width:100%; padding:14px; border:none; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer; background:#92400e; color:#fbbf24; letter-spacing:1px;">
+                💱 REGISTRAR VENTA EXTERNA
+            </button>
         </div>
-
-        <button id="btn-registrar" onclick="registrar()" disabled style="background:#2d3748; color:#4a5568;">
-            ✚ REGISTRAR OPERACIÓN
-        </button>
     </div>
 
     <!-- TOTALES -->
