@@ -754,15 +754,298 @@ function mostrarListaUsuarios() {
 })();
 
 /* ══════════════════════════════
-   CALCULADORA
+   NUEVA CALCULADORA — 3 registros independientes
 ══════════════════════════════ */
-function initFecha() {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    document.getElementById('fecha-op').value = now.toISOString().slice(0, 16);
+
+// Código de operación: DDMMYYA (ej: 020726A)
+function generarCodigoOp() {
+    const ec = new Date(Date.now() - 5*3600000);
+    const dd = String(ec.getUTCDate()).padStart(2,'0');
+    const mm = String(ec.getUTCMonth()+1).padStart(2,'0');
+    const yy = String(ec.getUTCFullYear()).slice(-2);
+    const prefijo = `${dd}${mm}${yy}`;
+    // Contar cuántas compras hay hoy para asignar letra
+    const hoy = prefijo;
+    const comprasHoy = historial.filter(r => r.tipo === 'COMPRA' && r.codOp?.startsWith(hoy)).length;
+    return prefijo + String.fromCharCode(65 + comprasHoy); // A, B, C...
 }
 
-function calcular() {
+function initFecha() {
+    // Fecha/hora Ecuador UTC-5
+    const ec = new Date(Date.now() - 5*3600000);
+    document.getElementById('fecha-op').value = ec.toISOString().slice(0,16);
+}
+
+function mostrarRegistro(tipo) {
+    ['compra','venta-binance','venta-externa'].forEach(t => {
+        document.getElementById(`reg-${t}`).style.display = t === tipo ? 'block' : 'none';
+    });
+    document.getElementById('btn-reg-compra').style.background = tipo==='compra' ? '#1a2744' : 'transparent';
+    document.getElementById('btn-reg-compra').style.color      = tipo==='compra' ? '#60a5fa' : '#718096';
+    document.getElementById('btn-reg-vb').style.background     = tipo==='venta-binance' ? '#0f2a1a' : 'transparent';
+    document.getElementById('btn-reg-vb').style.color          = tipo==='venta-binance' ? '#10b981' : '#718096';
+    document.getElementById('btn-reg-ve').style.background     = tipo==='venta-externa' ? '#2a1a0a' : 'transparent';
+    document.getElementById('btn-reg-ve').style.color          = tipo==='venta-externa' ? '#f59e0b' : '#718096';
+
+    if (tipo === 'venta-binance') actualizarSelectsOp();
+    if (tipo === 'venta-externa') actualizarSelectsOp();
+}
+
+function actualizarSelectsOp() {
+    // Listar compras con saldo USDT disponible
+    const compras = historial.filter(r => r.tipo === 'COMPRA' && !r.cerrado);
+    const optsVB = compras.map(c => {
+        const saldo = calcularSaldoUSDT(c.codOp);
+        return `<option value="${c.codOp}">${c.codOp} · saldo: ${fmt(saldo,2)} USDT</option>`;
+    });
+    const optsVE = compras.map(c => {
+        const saldoARS = calcularSaldoARS(c.codOp);
+        return `<option value="${c.codOp}">${c.codOp} · ARS disponibles: ${fmt(saldoARS,0)}</option>`;
+    });
+
+    const selVB = document.getElementById('op-code-vb');
+    const selVE = document.getElementById('op-code-ve');
+    if (selVB) selVB.innerHTML = '<option value="">Seleccioná operación...</option>' + (optsVB.join('') || '<option disabled>No hay compras abiertas</option>');
+    if (selVE) selVE.innerHTML = '<option value="">Seleccioná operación...</option>' + (optsVE.join('') || '<option disabled>No hay compras abiertas</option>');
+
+    // Predicción automática: preseleccionar la compra con más saldo
+    if (compras.length === 1) {
+        if (selVB) selVB.value = compras[0].codOp;
+        if (selVE) selVE.value = compras[0].codOp;
+        mostrarSaldoVB(); mostrarSaldoVE();
+    } else if (compras.length > 1) {
+        // Elegir la que tiene saldo más cercano a lo que se va a vender
+        const mejorUSDT = compras.reduce((best, c) => calcularSaldoUSDT(c.codOp) > calcularSaldoUSDT(best.codOp) ? c : best, compras[0]);
+        if (selVB) { selVB.value = mejorUSDT.codOp; mostrarSaldoVB(); }
+        const mejorARS  = compras.reduce((best, c) => calcularSaldoARS(c.codOp)  > calcularSaldoARS(best.codOp)  ? c : best, compras[0]);
+        if (selVE) { selVE.value = mejorARS.codOp;  mostrarSaldoVE(); }
+    }
+}
+
+function calcularSaldoUSDT(codOp) {
+    const compra = historial.find(r => r.tipo === 'COMPRA' && r.codOp === codOp);
+    if (!compra) return 0;
+    const vendido = historial.filter(r => r.tipo === 'VENTA_BINANCE' && r.codOp === codOp)
+        .reduce((s, r) => s + (r.usdtVendidos || 0), 0);
+    return Math.max(0, (compra.usdtNetos || 0) - vendido);
+}
+
+function calcularSaldoARS(codOp) {
+    const arsTotal = historial.filter(r => r.tipo === 'VENTA_BINANCE' && r.codOp === codOp)
+        .reduce((s, r) => s + (r.arsNetos || 0), 0);
+    const arsUsado = historial.filter(r => r.tipo === 'VENTA_EXTERNA' && r.codOp === codOp)
+        .reduce((s, r) => s + (r.arsConvertidos || 0), 0);
+    return Math.max(0, arsTotal - arsUsado);
+}
+
+// ── COMPRA ──
+function calcularCompra() {
+    const monto  = parseFloat(document.getElementById('monto-usd').value);
+    const precio = parseFloat(document.getElementById('precio-compra').value);
+    if (isNaN(monto) || isNaN(precio) || !monto || !precio) {
+        document.getElementById('res-compra').style.display = 'none'; return;
+    }
+    const brutos = monto / precio;
+    const com    = brutos * COMISION;
+    document.getElementById('usdt-brutos-display').textContent = fmt(brutos, 5);
+    document.getElementById('comision-compra').value = com.toFixed(5);
+    document.getElementById('usdt-netos-display').textContent  = fmt(brutos - com, 5) + ' USDT';
+    document.getElementById('res-compra').style.display = 'block';
+}
+
+function registrarCompra() {
+    const monto  = parseFloat(document.getElementById('monto-usd').value);
+    const precio = parseFloat(document.getElementById('precio-compra').value);
+    if (!monto || !precio) { alert('Ingresá USD a invertir y precio USDT.'); return; }
+
+    const brutos = monto / precio;
+    const com    = parseFloat(document.getElementById('comision-compra').value) || brutos * COMISION;
+    const netos  = brutos - com;
+    const codOp  = generarCodigoOp();
+
+    const fechaInput = document.getElementById('fecha-op').value;
+    const fechaDate  = fechaInput ? new Date(fechaInput) : new Date();
+
+    const reg = {
+        id: Date.now(), tipo: 'COMPRA', codOp,
+        fechaISO: fechaDate.toISOString(),
+        fecha: fechaDate.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+        monto, precioCompra: precio,
+        usdtBrutos: brutos, comisionCompra: com, usdtNetos: netos,
+        nota: document.getElementById('nota-compra').value,
+        cerrado: false
+    };
+
+    historial.push(reg);
+    historial.sort((a,b) => new Date(a.fechaISO)-new Date(b.fechaISO));
+    guardarHistorialUsuario();
+    renderHistorial();
+
+    // Limpiar y mostrar confirmación
+    ['monto-usd','precio-compra','nota-compra'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('res-compra').style.display = 'none';
+    document.getElementById('comision-compra').value = '';
+    initFecha();
+    alert(`✅ Compra registrada\nCódigo: ${codOp}\nUSDT netos: ${fmt(netos,5)}`);
+}
+
+// ── VENTA BINANCE ──
+function mostrarSaldoVB() {
+    const codOp = document.getElementById('op-code-vb')?.value;
+    const saldo = codOp ? calcularSaldoUSDT(codOp) : 0;
+    const div = document.getElementById('saldo-disponible-vb');
+    if (div) div.textContent = codOp ? `Saldo disponible: ${fmt(saldo,5)} USDT` : '';
+    calcularVentaBinance();
+}
+
+function calcularVentaBinance() {
+    const usdt   = parseFloat(document.getElementById('usdt-vender').value);
+    const precio = parseFloat(document.getElementById('precio-venta-ars').value);
+    if (isNaN(usdt) || isNaN(precio) || !usdt || !precio) {
+        document.getElementById('res-venta-binance').style.display='none'; return;
+    }
+    const com    = usdt * COMISION;
+    const arsBrutos = usdt * precio;
+    const arsNetos  = arsBrutos - (com * precio);
+    document.getElementById('comision-venta').value = com.toFixed(5);
+    document.getElementById('ars-obtenidos').textContent = fmtARS(arsNetos);
+    document.getElementById('res-venta-binance').style.display = 'block';
+}
+
+function registrarVentaBinance() {
+    const codOp  = document.getElementById('op-code-vb')?.value;
+    const usdt   = parseFloat(document.getElementById('usdt-vender').value);
+    const precio = parseFloat(document.getElementById('precio-venta-ars').value);
+    if (!codOp) { alert('Seleccioná la operación de compra.'); return; }
+    if (!usdt || !precio) { alert('Ingresá USDT a vender y precio ARS.'); return; }
+
+    const saldo = calcularSaldoUSDT(codOp);
+    if (usdt > saldo + 0.001) { alert(`⚠️ USDT a vender (${fmt(usdt,5)}) supera el saldo disponible (${fmt(saldo,5)}).`); return; }
+
+    const com       = parseFloat(document.getElementById('comision-venta').value) || usdt * COMISION;
+    const arsNetos  = (usdt * precio) - (com * precio);
+    const ventaTotal = document.getElementById('venta-total-cb')?.checked;
+    const fechaInput = document.getElementById('fecha-op').value;
+    const fechaDate  = fechaInput ? new Date(fechaInput) : new Date();
+
+    const reg = {
+        id: Date.now(), tipo: 'VENTA_BINANCE', codOp,
+        fechaISO: fechaDate.toISOString(),
+        fecha: fechaDate.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+        usdtVendidos: usdt, precioVentaARS: precio,
+        comisionVenta: com, arsNetos,
+        ventaTotal,
+        nota: document.getElementById('nota-vb').value
+    };
+
+    historial.push(reg);
+    if (ventaTotal) {
+        const compra = historial.find(r => r.tipo==='COMPRA' && r.codOp===codOp);
+        if (compra) compra.cerrado = true;
+    }
+    historial.sort((a,b) => new Date(a.fechaISO)-new Date(b.fechaISO));
+    guardarHistorialUsuario();
+    renderHistorial();
+
+    ['usdt-vender','precio-venta-ars','nota-vb'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('comision-venta').value='';
+    document.getElementById('res-venta-binance').style.display='none';
+    if (document.getElementById('venta-total-cb')) document.getElementById('venta-total-cb').checked=false;
+    initFecha();
+    actualizarSelectsOp();
+    alert(`✅ Venta Binance registrada\nOp: ${codOp}\nARS: ${fmtARS(arsNetos)}${ventaTotal?' · OPERACIÓN CERRADA':''}`);
+}
+
+// ── VENTA EXTERNA ──
+function mostrarSaldoVE() {
+    const codOp = document.getElementById('op-code-ve')?.value;
+    const saldo = codOp ? calcularSaldoARS(codOp) : 0;
+    const div = document.getElementById('saldo-ars-ve');
+    if (div) div.textContent = codOp ? `ARS disponibles: ${fmtARS(saldo)}` : '';
+    calcularVentaExterna();
+}
+
+function calcularVentaExterna() {
+    const ars = parseFloat(document.getElementById('ars-convertir').value);
+    const tc  = parseFloat(document.getElementById('tipo-cambio').value);
+    if (isNaN(ars) || isNaN(tc) || !ars || !tc) {
+        document.getElementById('res-venta-externa').style.display='none'; return;
+    }
+    const codOp = document.getElementById('op-code-ve')?.value;
+    const usdRecuperados = ars / tc;
+
+    // Comisión: proporcional al costo de los USDT usados para conseguir estos ARS
+    let comision = 0;
+    if (codOp) {
+        const compra = historial.find(r => r.tipo==='COMPRA' && r.codOp===codOp);
+        if (compra) {
+            const arsTotal = historial.filter(r=>r.tipo==='VENTA_BINANCE'&&r.codOp===codOp).reduce((s,r)=>s+r.arsNetos,0);
+            const prop = arsTotal > 0 ? ars / arsTotal : 0;
+            const costoUSD = prop * compra.monto;
+            comision = usdRecuperados - costoUSD;
+        }
+    }
+
+    document.getElementById('usd-recuperados').textContent = fmtUSD(usdRecuperados);
+    document.getElementById('comision-facturar').textContent = fmtUSD(Math.max(0, comision));
+    document.getElementById('res-venta-externa').style.display = 'block';
+}
+
+function registrarVentaExterna() {
+    const codOp = document.getElementById('op-code-ve')?.value;
+    const ars   = parseFloat(document.getElementById('ars-convertir').value);
+    const tc    = parseFloat(document.getElementById('tipo-cambio').value);
+    if (!codOp) { alert('Seleccioná la operación de compra.'); return; }
+    if (!ars || !tc) { alert('Ingresá ARS a convertir y tipo de cambio.'); return; }
+
+    const usdRecuperados = ars / tc;
+    const compra = historial.find(r => r.tipo==='COMPRA' && r.codOp===codOp);
+    let comision = 0;
+    if (compra) {
+        const arsTotal = historial.filter(r=>r.tipo==='VENTA_BINANCE'&&r.codOp===codOp).reduce((s,r)=>s+r.arsNetos,0);
+        const prop = arsTotal > 0 ? ars / arsTotal : 0;
+        comision = usdRecuperados - (prop * compra.monto);
+    }
+
+    const fechaInput = document.getElementById('fecha-op').value;
+    const fechaDate  = fechaInput ? new Date(fechaInput) : new Date();
+
+    const reg = {
+        id: Date.now(), tipo: 'VENTA_EXTERNA', codOp,
+        fechaISO: fechaDate.toISOString(),
+        fecha: fechaDate.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+        arsConvertidos: ars, tipoCambio: tc,
+        usdRecuperados, ganancia: Math.max(0, comision),
+        nota: document.getElementById('nota-ve').value,
+        // Para compatibilidad con modal XML SRI
+        monto: compra?.monto || 0,
+        precioCompra: compra?.precioCompra || 0,
+        usdtNetos: compra?.usdtNetos || 0,
+        comisionCompra: compra?.comisionCompra || 0,
+        comisionVenta: 0,
+        arsNetos: ars,
+        precioVentaARS: 0
+    };
+
+    historial.push(reg);
+    historial.sort((a,b) => new Date(a.fechaISO)-new Date(b.fechaISO));
+    guardarHistorialUsuario();
+    renderHistorial();
+
+    ['ars-convertir','tipo-cambio','nota-ve'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('res-venta-externa').style.display='none';
+    initFecha();
+    actualizarSelectsOp();
+    alert(`✅ Venta Externa registrada\nOp: ${codOp}\nUSD: ${fmtUSD(usdRecuperados)}\nComisión a facturar: ${fmtUSD(Math.max(0,comision))}`);
+}
+
+// Mantener compatibilidad con botón actualizarBoton que puede llamarse desde otros lugares
+function actualizarBoton() {}
+function calcular() {}
+function recalcularDesdeComision() {}
+function registrar() {}
+
+
     const monto          = parseFloat(document.getElementById('monto-usd').value);
     const precioCompra   = parseFloat(document.getElementById('precio-compra').value);
     const precioVentaARS = parseFloat(document.getElementById('precio-venta-ars').value);
@@ -970,11 +1253,14 @@ function eliminar(idx) {
 
 function renderHistorial() {
     const lista    = document.getElementById('lista-historial');
-    const totalOps = historial.length;
-    const totalInv = historial.reduce((s,o) => s + o.monto, 0);
-    const totalGan = historial.reduce((s,o) => s + o.ganancia, 0);
 
-    if (totalOps === 0) {
+    // Totales: solo compras
+    const compras = historial.filter(r => r.tipo === 'COMPRA');
+    const totalInv = compras.reduce((s,o) => s + (o.monto||0), 0);
+    const ventas   = historial.filter(r => r.tipo === 'VENTA_EXTERNA');
+    const totalGan = ventas.reduce((s,o) => s + (o.ganancia||0), 0);
+
+    if (!historial.length) {
         document.getElementById('seccion-historial').style.display = 'none';
         document.getElementById('totales').style.display = 'none';
         document.getElementById('empty-msg').style.display = 'block';
@@ -985,48 +1271,58 @@ function renderHistorial() {
     document.getElementById('seccion-historial').style.display = 'block';
     document.getElementById('totales').style.display = 'grid';
 
-    document.getElementById('total-ops').textContent = totalOps;
+    document.getElementById('total-ops').textContent = compras.length;
     document.getElementById('total-invertido').textContent = fmtUSD(totalInv);
     const tg = document.getElementById('total-ganancia');
     tg.textContent = fmtUSD(totalGan);
     tg.style.color = totalGan >= 0 ? '#4ade80' : '#f87171';
 
-    // Mostrar en pantalla: más reciente primero (DESC)
-    // El índice 'i' en pantalla → idxReal = totalOps-1-i en el array ASC
     const enPantalla = [...historial].reverse();
 
-    lista.innerHTML = enPantalla.map((op, i) => `
-        <div class="historial-item">
+    lista.innerHTML = enPantalla.map((op, i) => {
+        const idx = historial.length - 1 - i;
+        const color = op.tipo==='COMPRA' ? '#3b82f6' : op.tipo==='VENTA_BINANCE' ? '#10b981' : '#f59e0b';
+        const icono = op.tipo==='COMPRA' ? '↙' : op.tipo==='VENTA_BINANCE' ? '↗' : '💱';
+        const label = op.tipo==='COMPRA' ? 'COMPRA' : op.tipo==='VENTA_BINANCE' ? 'VENTA BINANCE' : 'VENTA EXTERNA';
+
+        let detalle = '';
+        if (op.tipo==='COMPRA') {
+            detalle = `${fmtUSD(op.monto)} → ${fmt(op.usdtNetos,5)} USDT ${op.cerrado?'<span style="color:#4a5568;">· cerrada</span>':'<span style="color:#4ade80;">· abierta</span>'}`;
+        } else if (op.tipo==='VENTA_BINANCE') {
+            detalle = `${fmt(op.usdtVendidos,5)} USDT → ${fmtARS(op.arsNetos)}`;
+        } else {
+            detalle = `${fmtARS(op.arsConvertidos)} → ${fmtUSD(op.usdRecuperados)} · comisión: ${fmtUSD(op.ganancia)}`;
+        }
+
+        const mostrarXML = op.tipo === 'VENTA_EXTERNA';
+
+        return `<div class="historial-item">
             <div style="flex:1; min-width:0;">
-                <div style="font-size:11px; color:#718096; margin-bottom:4px;">
-                    #${historial.length - i} · ${op.fecha}
-                    ${op.xmlSeq ? `<span style="color:#f7c948; margin-left:8px;">📄 FAC ${op.xmlSeq}</span>` : ''}
-                    ${op.sriAutorizado ? `<span style="color:#4ade80; margin-left:4px;">✅ Autorizada</span>` : ''}
+                <div style="font-size:10px; margin-bottom:3px; display:flex; gap:6px; align-items:center;">
+                    <span style="color:${color}; font-weight:700;">${icono} ${label}</span>
+                    <span style="color:#f7c948; font-family:monospace;">${op.codOp||''}</span>
+                    <span style="color:#4a5568;">${op.fecha}</span>
                 </div>
                 <div style="font-size:13px; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    ${fmtUSD(op.monto)} → ${fmtARS(op.arsNetos)} → ${fmtUSD(op.usdRecuperados)}
+                    ${detalle}
                 </div>
                 ${op.nota ? `<div style="font-size:11px; color:#94a3b8; margin-top:2px;">${op.nota}</div>` : ''}
-            </div>
-            <div style="text-align:right; flex-shrink:0;">
-                <div style="font-size:16px; font-weight:700; color:${op.ganancia >= 0 ? '#4ade80' : '#f87171'};">
-                    ${op.ganancia >= 0 ? '+' : ''}${fmtUSD(op.ganancia)}
-                </div>
-                <div style="font-size:11px; color:#94a3b8;">${fmt(op.rentPct, 3)}%</div>
+                ${op.xmlSeq ? `<div style="font-size:10px; color:#4ade80;">📄 FAC ${op.xmlSeq} ✅</div>` : ''}
             </div>
             <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
-                <button onclick="abrirModalXML(${i})"
+                ${mostrarXML ? `<button onclick="abrirModalXML(${idx})"
                     style="background:#1d4ed8; color:#fff; border:none; border-radius:7px; padding:5px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">
                     📄 XML SRI
-                </button>
-                <button onclick="eliminar(${i})"
+                </button>` : ''}
+                <button onclick="eliminar(${idx})"
                     style="background:none; border:1px solid #374151; color:#4a5568; cursor:pointer; font-size:11px; border-radius:7px; padding:4px 10px;">
                     ✕
                 </button>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
+
 
 /* ══════════════════════════════
    MODAL XML SRI
