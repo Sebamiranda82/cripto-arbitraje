@@ -794,7 +794,7 @@ function mostrarRegistro(tipo) {
 
 function actualizarSelectsOp() {
     // Listar compras con saldo USDT disponible
-    const compras = historial.filter(r => r.tipo === 'COMPRA' && !r.cerrado);
+    const compras = historial.filter(r => (r.tipo === 'COMPRA' || (!r.tipo && r.usdtNetos)) && !r.cerrado);
     const optsVB = compras.map(c => {
         const saldo = calcularSaldoUSDT(c.codOp);
         return `<option value="${c.codOp}">${c.codOp} · saldo: ${fmt(saldo,2)} USDT</option>`;
@@ -824,9 +824,10 @@ function actualizarSelectsOp() {
 }
 
 function calcularSaldoUSDT(codOp) {
-    const compra = historial.find(r => r.tipo === 'COMPRA' && r.codOp === codOp);
+    // Buscar la compra — puede no tener campo 'tipo' si fue cargada con versión anterior
+    const compra = historial.find(r => r.codOp === codOp && (r.tipo === 'COMPRA' || (!r.tipo && r.usdtNetos)));
     if (!compra) return 0;
-    const vendido = historial.filter(r => r.tipo === 'VENTA_BINANCE' && r.codOp === codOp)
+    const vendido = historial.filter(r => r.codOp === codOp && r.tipo === 'VENTA_BINANCE')
         .reduce((s, r) => s + (r.usdtVendidos || 0), 0);
     return Math.max(0, (compra.usdtNetos || 0) - vendido);
 }
@@ -1082,7 +1083,7 @@ function renderHistorial() {
     const lista    = document.getElementById('lista-historial');
 
     // Totales: solo compras
-    const compras = historial.filter(r => r.tipo === 'COMPRA');
+    const compras = historial.filter(r => r.tipo === 'COMPRA' || (!r.tipo && r.usdtNetos));
     const totalInv = compras.reduce((s,o) => s + (o.monto||0), 0);
     const ventas   = historial.filter(r => r.tipo === 'VENTA_EXTERNA');
     const totalGan = ventas.reduce((s,o) => s + (o.ganancia||0), 0);
