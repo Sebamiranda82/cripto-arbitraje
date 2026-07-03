@@ -1902,87 +1902,68 @@ function generarYDescargarXML() {
 function exportarExcel() {
     if (historial.length === 0) return;
 
-    // historial ya está ordenado ASC por fecha
-    // Asignar número correlativo 1,2,3...
-    const filas = historial.map((op, i) => ({
-        'N°':                          i + 1,
-        'Fecha':                       op.fecha,
-        'Factura SRI':                 op.xmlSeq || '',
-        'Estado SRI':                  op.sriAutorizado ? 'AUTORIZADA' : (op.xmlSeq ? 'XML generado' : ''),
-        'USD Invertidos':              op.monto,
-        'Precio Compra USDT (USD)':    op.precioCompra,
-        'Comisión Compra (USDT)':      op.comisionCompra,
-        'USDT Netos':                  op.usdtNetos,
-        'Precio Venta USDT (ARS)':     op.precioVentaARS,
-        'Comisión Venta (USDT)':       op.comisionVenta || 0,
-        'ARS Obtenidos':               op.arsNetos,
-        'Tipo Cambio ARS→USD':         op.tipoCambio,
-        'USD Recuperados':             op.usdRecuperados,
-        'Ganancia USD (a facturar)':   op.ganancia,
-        'Rentabilidad %':              op.rentPct / 100,
-        'Notas':                       op.nota || ''
-    }));
+    const filas = historial.map((op, i) => {
+        const tipo = op.tipo || 'COMPRA';
+        const base = {
+            'N°':        i + 1,
+            'Operación': op.codOp || '',
+            'Tipo':      tipo,
+            'Fecha':     op.fecha,
+        };
 
-    const n = filas.length;
-    const totales = {
-        'N°': '', 'Fecha': 'TOTALES', 'Factura SRI': '', 'Estado SRI': '',
-        'USD Invertidos':            { f: `SUM(E2:E${n+1})` },
-        'Precio Compra USDT (USD)':  '',
-        'Comisión Compra (USDT)':    { f: `SUM(G2:G${n+1})` },
-        'USDT Netos':                { f: `SUM(H2:H${n+1})` },
-        'Precio Venta USDT (ARS)':   '',
-        'Comisión Venta (USDT)':     { f: `SUM(J2:J${n+1})` },
-        'ARS Obtenidos':             { f: `SUM(K2:K${n+1})` },
-        'Tipo Cambio ARS→USD':       '',
-        'USD Recuperados':           { f: `SUM(M2:M${n+1})` },
-        'Ganancia USD (a facturar)': { f: `SUM(N2:N${n+1})` },
-        'Rentabilidad %':            { f: `AVERAGE(O2:O${n+1})` },
-        'Notas': ''
-    };
+        if (tipo === 'COMPRA' || (!op.tipo && op.usdtNetos)) {
+            return { ...base,
+                'USD Invertidos':         op.monto || '',
+                'Precio Compra (USD)':    op.precioCompra || '',
+                'USDT Brutos':            op.usdtBrutos || '',
+                'Comisión Compra (USDT)': op.comisionCompra || '',
+                'USDT Netos':             op.usdtNetos || '',
+                'USDT Vendidos':          '', 'Precio Venta (ARS)': '',
+                'Comisión Venta (USDT)':  '', 'ARS Obtenidos': '',
+                'ARS Convertidos':        '', 'Tipo Cambio': '',
+                'USD Recuperados':        '', 'Comisión a Facturar': '',
+                'Nota': op.nota || ''
+            };
+        } else if (tipo === 'VENTA_BINANCE') {
+            return { ...base,
+                'USD Invertidos': '', 'Precio Compra (USD)': '',
+                'USDT Brutos': '', 'Comisión Compra (USDT)': '', 'USDT Netos': '',
+                'USDT Vendidos':         op.usdtVendidos || '',
+                'Precio Venta (ARS)':    op.precioVentaARS || '',
+                'Comisión Venta (USDT)': op.comisionVenta || '',
+                'ARS Obtenidos':         op.arsNetos || '',
+                'ARS Convertidos': '', 'Tipo Cambio': '',
+                'USD Recuperados': '', 'Comisión a Facturar': '',
+                'Nota': op.nota || ''
+            };
+        } else { // VENTA_EXTERNA
+            return { ...base,
+                'USD Invertidos': '', 'Precio Compra (USD)': '',
+                'USDT Brutos': '', 'Comisión Compra (USDT)': '', 'USDT Netos': '',
+                'USDT Vendidos': '', 'Precio Venta (ARS)': '',
+                'Comisión Venta (USDT)': '', 'ARS Obtenidos': '',
+                'ARS Convertidos':    op.arsConvertidos || '',
+                'Tipo Cambio':        op.tipoCambio || '',
+                'USD Recuperados':    op.usdRecuperados || '',
+                'Comisión a Facturar': op.ganancia || '',
+                'Factura SRI':        op.xmlSeq || '',
+                'Estado SRI':         op.sriAutorizado ? 'AUTORIZADA' : (op.xmlSeq ? 'Generado' : ''),
+                'Nota': op.nota || ''
+            };
+        }
+    });
 
-    const ws = XLSX.utils.json_to_sheet([...filas, totales]);
+    const ws = XLSX.utils.json_to_sheet(filas);
     ws['!cols'] = [
-        {wch:5},{wch:18},{wch:22},{wch:14},
-        {wch:15},{wch:22},{wch:20},{wch:14},
-        {wch:22},{wch:20},{wch:16},{wch:18},
-        {wch:16},{wch:22},{wch:14},{wch:25}
+        {wch:5},{wch:10},{wch:16},{wch:18},
+        {wch:15},{wch:16},{wch:13},{wch:20},{wch:13},
+        {wch:13},{wch:15},{wch:20},{wch:14},{wch:18},
+        {wch:22},{wch:12},{wch:25}
     ];
-
-    // Formatos numéricos
-    for (let r = 2; r <= n + 2; r++) {
-        ['E','M','N'].forEach(c => { if(ws[`${c}${r}`]) ws[`${c}${r}`].z = '"U$D "#,##0.00'; });
-        if(ws[`K${r}`]) ws[`K${r}`].z = '"$ "#,##0.00';
-        if(ws[`O${r}`]) ws[`O${r}`].z = '0.00%';
-        ['G','H','J'].forEach(c => { if(ws[`${c}${r}`]) ws[`${c}${r}`].z = '#,##0.00000'; });
-    }
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Operaciones');
 
-    // Hoja resumen
-    const wsR = XLSX.utils.aoa_to_sheet([
-        ['REGISTRO ARBITRAJE CRIPTO — ANUAR PROYECTOS'],
-        ['Usuario:',  usuarioActivo],
-        ['Versión:',  APP_VERSION],
-        ['Emisor:',   EMISOR.razonSocial],
-        ['RUC:',      EMISOR.ruc],
-        ['Régimen:',  'RIMPE Negocio Popular — Factura Electrónica'],
-        ['Generado:', new Date().toLocaleString('es-AR')],
-        [],
-        ['Total operaciones',          n],
-        ['Facturas SRI emitidas',      historial.filter(o=>o.xmlSeq).length],
-        ['Facturas autorizadas SRI',   historial.filter(o=>o.sriAutorizado).length],
-        [],
-        ['USD total invertidos',        { f: `=Operaciones!E${n+2}` }],
-        ['USD total recuperados',       { f: `=Operaciones!M${n+2}` }],
-        ['Ganancia total (comisión)',   { f: `=Operaciones!N${n+2}` }],
-        ['Rentabilidad promedio',       { f: `=Operaciones!O${n+2}` }],
-        ['Comisión Binance aplicada',   '0.038%'],
-    ]);
-    wsR['!cols'] = [{wch:28},{wch:30}];
-    XLSX.utils.book_append_sheet(wb, wsR, 'Resumen');
-
-    // Nombre archivo incluye usuario — cada uno tiene el suyo
     const nombreArchivo = `arbitraje_cripto_${usuarioActivo.replace(/\s+/g,'_')}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
 }
