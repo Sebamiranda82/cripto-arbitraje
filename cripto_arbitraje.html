@@ -227,7 +227,7 @@
                             <span style="color:#ef4444; font-size:11px;">Comisión:</span>
                             <input id="comision-compra" type="number" step="0.00001"
                                 style="background:#1a0a0a; border:1px solid #7f1d1d; border-radius:6px; padding:4px 8px; color:#f87171; font-size:12px; font-weight:700; width:85px; outline:none; text-align:right;"
-                                oninput="calcularCompra()">
+                                oninput="this.dataset.manual='1'; calcularCompra()">
                             <span style="color:#ef4444; font-size:11px;">USDT</span>
                         </div>
                     </div>
@@ -273,7 +273,7 @@
                             <span style="color:#ef4444; font-size:11px;">Comisión:</span>
                             <input id="comision-venta" type="number" step="0.00001"
                                 style="background:#1a0a0a; border:1px solid #7f1d1d; border-radius:6px; padding:4px 8px; color:#f87171; font-size:12px; font-weight:700; width:85px; outline:none; text-align:right;"
-                                oninput="calcularVentaBinance()">
+                                oninput="this.dataset.manual='1'; calcularVentaBinance()">
                             <span style="color:#ef4444; font-size:11px;">USDT</span>
                         </div>
                     </div>
@@ -846,9 +846,10 @@ function calcularCompra() {
         document.getElementById('res-compra').style.display = 'none'; return;
     }
     const brutos = monto / precio;
-    const com    = brutos * COMISION;
+    const inpCC  = document.getElementById('comision-compra');
+    if (!inpCC.dataset.manual) inpCC.value = (brutos * COMISION).toFixed(5);
+    const com = parseFloat(inpCC.value) || brutos * COMISION;
     document.getElementById('usdt-brutos-display').textContent = fmt(brutos, 5);
-    document.getElementById('comision-compra').value = com.toFixed(5);
     document.getElementById('usdt-netos-display').textContent  = fmt(brutos - com, 5) + ' USDT';
     document.getElementById('res-compra').style.display = 'block';
 }
@@ -905,9 +906,12 @@ function calcularVentaBinance() {
         document.getElementById('res-venta-binance').style.display='none'; return;
     }
     const com    = usdt * COMISION;
+    const inpCV  = document.getElementById('comision-venta');
+    // Solo sobreescribir si el usuario no editó manualmente
+    if (!inpCV.dataset.manual) inpCV.value = com.toFixed(5);
+    const comReal = parseFloat(inpCV.value) || com;
     const arsBrutos = usdt * precio;
-    const arsNetos  = arsBrutos - (com * precio);
-    document.getElementById('comision-venta').value = com.toFixed(5);
+    const arsNetos  = arsBrutos - (comReal * precio);
     document.getElementById('ars-obtenidos').textContent = fmtARS(arsNetos);
     document.getElementById('res-venta-binance').style.display = 'block';
 }
