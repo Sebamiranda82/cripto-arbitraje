@@ -267,8 +267,14 @@
                     <input class="input-field" id="precio-venta-ars" type="number" placeholder="Ej: 1562" oninput="calcularVentaBinance()">
                 </label>
                 <div id="res-venta-binance" style="display:none; margin-top:10px;">
-                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                        <span style="color:#10b981; font-size:12px;">ARS obtenidos: <strong id="ars-obtenidos">-</strong></span>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="color:#10b981; font-size:12px;">ARS obtenidos:</span>
+                        <input id="ars-obtenidos-input" type="number" step="0.01"
+                            style="background:#0a2a0a; border:1px solid #166534; border-radius:6px; padding:5px 10px;
+                                   color:#4ade80; font-size:13px; font-weight:700; width:140px; outline:none; text-align:right;"
+                            placeholder="0.00"
+                            oninput="this.dataset.manual='1'">
+                        <span style="color:#10b981; font-size:12px;">ARS</span>
                     </div>
                 </div>
                 <!-- Comisión siempre visible -->
@@ -914,7 +920,8 @@ function calcularVentaBinance() {
     const comReal = parseFloat(inpCV.value) || com;
     const arsBrutos = usdt * precio;
     const arsNetos  = arsBrutos - (comReal * precio);
-    document.getElementById('ars-obtenidos').textContent = fmtARS(arsNetos);
+    const inpARS = document.getElementById('ars-obtenidos-input');
+    if (!inpARS.dataset.manual) inpARS.value = arsNetos.toFixed(2);
     document.getElementById('res-venta-binance').style.display = 'block';
 }
 
@@ -929,7 +936,7 @@ function registrarVentaBinance() {
     if (usdt > saldo + 0.001) { alert(`⚠️ USDT a vender (${fmt(usdt,5)}) supera el saldo disponible (${fmt(saldo,5)}).`); return; }
 
     const com       = parseFloat(document.getElementById('comision-venta').value) || usdt * COMISION;
-    const arsNetos  = (usdt * precio) - (com * precio);
+    const arsNetos  = parseFloat(document.getElementById('ars-obtenidos-input').value) || (usdt * precio) - (com * precio);
     const ventaTotal = document.getElementById('venta-total-cb')?.checked;
     const fechaInput = document.getElementById('fecha-op').value;
     const fechaDate  = fechaInput ? new Date(fechaInput) : new Date();
@@ -953,7 +960,10 @@ function registrarVentaBinance() {
     guardarHistorialUsuario();
     renderHistorial();
 
-    ['usdt-vender','precio-venta-ars','nota-vb'].forEach(id => document.getElementById(id).value='');
+    ['usdt-vender','precio-venta-ars','nota-vb','ars-obtenidos-input'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.value=''; delete el.dataset.manual; }
+    });
     document.getElementById('comision-venta').value='';
     document.getElementById('res-venta-binance').style.display='none';
     if (document.getElementById('venta-total-cb')) document.getElementById('venta-total-cb').checked=false;
