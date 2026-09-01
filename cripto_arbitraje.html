@@ -1681,10 +1681,22 @@ async function enviarAlSRI() {
     setSriStatus('⏳ Enviando al SRI…', 'loading');
 
     try {
-        const resp = await fetch(url + '/firmar-enviar', {
+        const resp = await fetch(url + '/arbitraje/factura', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ xml, claveAcceso }),
+            body: JSON.stringify({
+                datos: {
+                    monto:       ganancia.toFixed(2),
+                    fecha:       opXML?.fechaISO || new Date().toISOString(),
+                    cedula:      document.getElementById('xml-cedula').value,
+                    nombre:      document.getElementById('xml-nombre').value,
+                    secuencial:  seq,
+                    formaPago:   document.getElementById('xml-forma-pago')?.value || '20',
+                    observacion: document.getElementById('xml-concepto').value,
+                    estab:  EMISOR.estab,
+                    ptoEmi: EMISOR.ptoEmi
+                }
+            }),
             signal: AbortSignal.timeout(120000)
         });
         const data = await resp.json();
