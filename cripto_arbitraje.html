@@ -990,15 +990,15 @@ function calcularVentaExterna() {
     const codOp = document.getElementById('op-code-ve')?.value;
     const usdRecuperados = ars / tc;
 
-    // Comisión: proporcional al costo de los USDT usados para conseguir estos ARS
     let comision = 0;
     if (codOp) {
-        const compra = historial.find(r => r.tipo==='COMPRA' && r.codOp===codOp);
+        const compra = historial.find(r => r.codOp===codOp && (r.tipo==='COMPRA' || (!r.tipo && r.usdtNetos)));
         if (compra) {
-            const arsTotal = historial.filter(r=>r.tipo==='VENTA_BINANCE'&&r.codOp===codOp).reduce((s,r)=>s+r.arsNetos,0);
-            const prop = arsTotal > 0 ? ars / arsTotal : 0;
-            const costoUSD = prop * compra.monto;
-            comision = usdRecuperados - costoUSD;
+            const arsTotal = historial.filter(r=>(r.tipo==='VENTA_BINANCE')&&r.codOp===codOp).reduce((s,r)=>s+(r.arsNetos||0),0);
+            const prop = arsTotal > 0 ? ars / arsTotal : 1;
+            comision = usdRecuperados - (prop * (compra.monto||0));
+        } else {
+            comision = usdRecuperados;
         }
     }
 
@@ -1015,12 +1015,15 @@ function registrarVentaExterna() {
     if (!ars || !tc) { alert('Ingresá ARS a convertir y tipo de cambio.'); return; }
 
     const usdRecuperados = ars / tc;
-    const compra = historial.find(r => r.tipo==='COMPRA' && r.codOp===codOp);
+    const compra = historial.find(r => r.codOp===codOp && (r.tipo==='COMPRA' || (!r.tipo && r.usdtNetos)));
     let comision = 0;
     if (compra) {
-        const arsTotal = historial.filter(r=>r.tipo==='VENTA_BINANCE'&&r.codOp===codOp).reduce((s,r)=>s+r.arsNetos,0);
-        const prop = arsTotal > 0 ? ars / arsTotal : 0;
-        comision = usdRecuperados - (prop * compra.monto);
+        const arsTotal = historial.filter(r=>(r.tipo==='VENTA_BINANCE')&&r.codOp===codOp).reduce((s,r)=>s+(r.arsNetos||0),0);
+        const prop = arsTotal > 0 ? ars / arsTotal : 1;
+        comision = usdRecuperados - (prop * (compra.monto||0));
+    } else {
+        // Si no hay compra relacionada, comisión = USD recuperados directamente
+        comision = usdRecuperados;
     }
 
     const fechaInput = document.getElementById('fecha-op').value;
