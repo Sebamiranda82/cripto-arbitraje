@@ -429,10 +429,16 @@
         <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
                 <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">FACTURAS SRI — FIRMADAS Y ENVIADAS</div>
-                <button onclick="exportarFacturasExcel()"
-                    style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
-                    ⬇ Exportar Excel
-                </button>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="abrirFacturaDirecta()"
+                        style="background:#1d4ed8; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
+                        📄 Nueva Factura
+                    </button>
+                    <button onclick="exportarFacturasExcel()"
+                        style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
+                        ⬇ Exportar Excel
+                    </button>
+                </div>
             </div>
 
             <!-- Tabla estilo Excel -->
@@ -1425,6 +1431,60 @@ function abrirFacturaEnSRI() {
     // Página oficial de consulta de validez de comprobantes del SRI
     const url = 'https://srienlinea.sri.gob.ec/comprobantes-electronicos-internet/publico/validezComprobantes.jsf';
     window.open(url, '_blank');
+}
+
+function abrirFacturaDirecta() {
+    // Abrir modal de factura sin operación vinculada — para arbitraje fuera de Binance
+    opXML = {
+        fecha: new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+        fechaISO: new Date().toISOString(),
+        monto: 0,
+        ganancia: 0,
+        nota: '',
+        usdtNetos: 0,
+        comisionCompra: 0,
+        comisionVenta: 0,
+        arsNetos: 0,
+        usdRecuperados: 0
+    };
+
+    // Cargar secuencial
+    let seq = parseInt(localStorage.getItem('cfb_seq_fact_v1') || localStorage.getItem('arbitraje_seq_fact') || '1');
+
+    document.getElementById('modal-xml').style.display = 'flex';
+    document.getElementById('xml-server-url').value = CFB_SERVER_URL;
+    document.getElementById('xml-cedula').value  = '9999999999999';
+    document.getElementById('xml-nombre').value  = 'CONSUMIDOR FINAL';
+    document.getElementById('xml-secuencial').value = seq;
+    document.getElementById('xml-fecha-emision').value = hoyEcuador();
+    document.getElementById('xml-forma-pago').value = '20';
+    document.getElementById('xml-ganancia').value = '';
+    document.getElementById('obs-importe').value  = '';
+    document.getElementById('obs-fecha').value    = '';
+    document.getElementById('obs-banco').value    = '';
+    document.getElementById('xml-concepto').value = '';
+    document.getElementById('sri-status').style.display      = 'none';
+    document.getElementById('btn-ver-factura').style.display = 'none';
+    document.getElementById('btn-enviar-sri').style.display  = 'none';
+    document.getElementById('xml-preview').style.display     = 'none';
+    document.getElementById('xml-preview-label').style.display = 'none';
+    _xmlGenerado = null; _claveAccesoGenerada = null; _facturaAutorizada = null;
+
+    document.getElementById('xml-op-info').innerHTML = `
+        <div style="font-size:11px;color:#f59e0b;padding:6px 0;">
+            ⚡ Factura directa — ingresá la comisión manualmente
+        </div>`;
+
+    // Listeners
+    document.getElementById('obs-importe').oninput = actualizarObservacion;
+    document.getElementById('obs-fecha').oninput   = actualizarObservacion;
+    document.getElementById('obs-banco').onchange  = actualizarObservacion;
+    document.getElementById('xml-ganancia').oninput = function() {
+        document.getElementById('obs-importe').value = this.value;
+        actualizarObservacion();
+    };
+
+    setTimeout(() => document.getElementById('xml-ganancia').focus(), 200);
 }
 
 function abrirModalXML(idxPantalla) {
