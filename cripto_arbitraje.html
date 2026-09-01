@@ -1681,6 +1681,8 @@ async function enviarAlSRI() {
     setSriStatus('⏳ Enviando al SRI…', 'loading');
 
     const ganancia = parseFloat(document.getElementById('xml-ganancia')?.value) || Math.abs(opXML?.ganancia || 0);
+
+    try {
         const resp = await fetch(url + '/arbitraje/factura', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
