@@ -148,3 +148,25 @@ Body JSON: { "xml": "<factura>...</factura>", "claveAcceso": "..." }
    el original en producción.
 4. Antes de enviar: `GET /health` con timeout largo, luego `POST /firmar-enviar` con
    `{ xml, claveAcceso }` en texto plano, timeout ≥120s.
+
+
+## ⚠️ PROBLEMA CRÍTICO CONOCIDO — SRIFACTU: "Sesión inválida"
+
+**Síntoma:** Al enviar factura desde Arbitraje aparece "Sesión inválida".
+
+**Causa:** El servidor SRIFACTU usa una variable `p12Buffer` en memoria para el endpoint
+`/arbitraje/factura`. Al reiniciar Render esa variable queda `null` porque el servidor
+NO tiene función `cargarCertificadoDesdeDB()` al arrancar (a diferencia de CFB que sí
+la tiene y la llama en `initDB()`).
+
+**Solución:** Agregar en `~/srifactu/server.js` la función `cargarCertificadoDesdeDB()`
+igual a la de `~/cfb/server.js` (líneas 262-271) y llamarla dentro de `initDB()`.
+
+**NO es un problema del XML ni del código de Arbitraje.**
+**NO perder tiempo buscando el error en la app — siempre es el servidor SRIFACTU.**
+
+Verificación rápida:
+```bash
+curl -s https://srifactu-servidor.onrender.com/health
+```
+Si no aparece `certificadoCargado: true` → el servidor necesita cargar el certificado.
