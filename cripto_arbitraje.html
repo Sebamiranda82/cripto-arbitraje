@@ -1457,9 +1457,15 @@ function abrirFacturaDirecta() {
     };
 
     // Cargar secuencial
-    let seq = parseInt(localStorage.getItem('cfb_seq_fact_v1') || localStorage.getItem('arbitraje_seq_fact') || '1');
-    // Solo incrementar si ya hay facturas guardadas
-    if (facturasSRI.length > 0) seq = seq + 1;
+    // Leer secuencial desde MySQL
+    let seq = 1;
+    try {
+        const seqResp = await fetch(CFB_SERVER_URL + '/arbitraje/secuencial');
+        const seqData = await seqResp.json();
+        if (seqData.ok) seq = seqData.secuencial;
+    } catch(e) {
+        seq = parseInt(localStorage.getItem('cfb_seq_fact_v1') || localStorage.getItem('arbitraje_seq_fact') || '1');
+    }
 
     document.getElementById('modal-xml').style.display = 'flex';
     document.getElementById('xml-server-url').value = CFB_SERVER_URL;
@@ -1600,15 +1606,17 @@ function abrirModalXML(idxPantalla) {
     _xmlGenerado = null;
     _facturaAutorizada = null;
 
-    // Secuencial: leer de CFB App primero (misma key), si no existe usar la propia
-    // cfb_seq_fact_v1 = último usado en CFB → el siguiente sería ese mismo valor
-    const seqCFB   = parseInt(localStorage.getItem('cfb_seq_fact_v1') || '0');
-    const seqPropio = parseInt(localStorage.getItem('arbitraje_seq_fact') || '0');
-    // Tomar el mayor de los dos (nunca retroceder)
-    const seqSugerido = Math.max(seqCFB, seqPropio, 1);
+    // Secuencial desde MySQL
     const inpSeq = document.getElementById('xml-secuencial');
-    inpSeq.value = seqSugerido;
-    inpSeq.style.border = '1px solid #4a6fa5'; // resaltar que es editable
+    fetch(CFB_SERVER_URL + '/arbitraje/secuencial')
+        .then(r => r.json())
+        .then(d => { if (d.ok) inpSeq.value = d.secuencial; })
+        .catch(() => {
+            const seqCFB = parseInt(localStorage.getItem('cfb_seq_fact_v1') || '0');
+            const seqPropio = parseInt(localStorage.getItem('arbitraje_seq_fact') || '0');
+            inpSeq.value = Math.max(seqCFB, seqPropio, 1);
+        });
+    inpSeq.style.border = '1px solid #4a6fa5';
 
     modal.classList.add('open');
 }
