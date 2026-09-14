@@ -1458,6 +1458,8 @@ function abrirFacturaDirecta() {
 
     // Cargar secuencial
     let seq = parseInt(localStorage.getItem('cfb_seq_fact_v1') || localStorage.getItem('arbitraje_seq_fact') || '1');
+    // Solo incrementar si ya hay facturas guardadas
+    if (facturasSRI.length > 0) seq = seq + 1;
 
     document.getElementById('modal-xml').style.display = 'flex';
     document.getElementById('xml-server-url').value = CFB_SERVER_URL;
