@@ -1722,7 +1722,7 @@ async function enviarAlSRI() {
             // Guardar datos para mostrar factura
             _facturaAutorizada = {
                 nroAut, fechaAut,
-                claveAcceso,
+                claveAcceso: (data.claveAcceso || data.autorizacion?.claveAcceso || nroAut),
                 secuencial: `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`,
                 cedula: document.getElementById('xml-cedula').value,
                 nombre: document.getElementById('xml-nombre').value,
