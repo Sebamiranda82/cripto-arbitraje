@@ -1472,7 +1472,7 @@ async function abrirFacturaDirecta() {
     document.getElementById('xml-cedula').value  = '9999999999999';
     document.getElementById('xml-nombre').value  = 'CONSUMIDOR FINAL';
     document.getElementById('xml-secuencial').value = seq;
-    document.getElementById('xml-fecha-emision').value = hoyEcuador();
+    if (document.getElementById('xml-fecha-emision')) document.getElementById('xml-fecha-emision').value = hoyEcuador();
     document.getElementById('xml-forma-pago').value = '20';
     document.getElementById('xml-ganancia').value = '';
     document.getElementById('obs-importe').value  = '';
