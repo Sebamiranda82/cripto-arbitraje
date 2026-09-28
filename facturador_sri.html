@@ -382,14 +382,56 @@ function autocompletarDesdeDirectorio(alias) {
 
 /* ══════════════════════════════
    FACTURAS SRI — registro local
+   Fuente única: MySQL, vía srifactu (/facturas-historial)
 ══════════════════════════════ */
-const LS_FACTURAS_SRI = 'arbitraje_facturas_sri_v1';
-let facturasSRI = [];
-try { facturasSRI = JSON.parse(localStorage.getItem(LS_FACTURAS_SRI) || '[]'); } catch(e) { facturasSRI = []; }
+const CFB_SERVER_URL = 'https://srifactu-production.up.railway.app';
+let facturasSRI = []; // caché en memoria de lo último traído de MySQL, para exportar Excel
 
-function guardarFacturaSRI(datos) {
-    facturasSRI.unshift(datos);
-    localStorage.setItem(LS_FACTURAS_SRI, JSON.stringify(facturasSRI));
+async function guardarFacturaSRI(datos) {
+    // datos viene con las keys viejas (fechaEmision, numero, cliente, total, nroAut, fechaAut)
+    // las mapeamos a las columnas de facturas_historial
+    try {
+        await fetch(CFB_SERVER_URL + '/facturas-historial', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                numeroFacturaSri: datos.numero,
+                numeroAutorizacion: datos.nroAut,
+                fechaEmision: datos.fechaEmision,
+                cliente: datos.cliente,
+                total: datos.total,
+                observacion: datos.observacion || null,
+                estadoSri: 'AUTORIZADO',
+                fechaAutorizacion: datos.fechaAut,
+                empresaId: 'facturador_sri'
+            })
+        });
+    } catch(e) {
+        console.error('No se pudo guardar en MySQL:', e.message);
+    }
+}
+
+async function cargarFacturasDesdeMySQL() {
+    const tbody = document.getElementById('tbody-facturas');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:#4a5568;">Cargando desde MySQL…</td></tr>`;
+    try {
+        const resp = await fetch(CFB_SERVER_URL + '/facturas-historial');
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || 'Error desconocido');
+        // Normalizamos al formato que usa la tabla y el excel
+        facturasSRI = data.facturas.map(f => ({
+            numero:       f.numero_factura_sri,
+            fechaEmision: f.fecha_emision,
+            cliente:      f.cliente,
+            total:        f.total,
+            nroAut:       f.numero_autorizacion || '',
+            fechaAut:     f.fecha_autorizacion,
+            observacion:  f.observacion
+        }));
+        renderTablaFacturas();
+    } catch(e) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:#f87171;">Error al cargar desde MySQL: ${e.message}</td></tr>`;
+    }
 }
 
 function renderTablaFacturas() {
@@ -429,7 +471,6 @@ function exportarFacturasExcel() {
     XLSX.writeFile(wb, `facturas_sri_${usuarioActivo}.xlsx`);
 }
 
-const CFB_SERVER_URL = 'https://srifactu-production.up.railway.app';
 const LS_SRI_URL     = 'cfb_sri_server_url';
 
 (function() {
@@ -784,10 +825,10 @@ async function enviarAlSRI() {
                 numero:       `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`,
                 cliente:      document.getElementById('xml-nombre').value || 'CONSUMIDOR FINAL',
                 total:        document.getElementById('xml-ganancia').value,
+                observacion:  document.getElementById('xml-concepto').value,
                 nroAut,
                 fechaAut:     new Date(fechaAut).toLocaleString('es-EC',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
-            });
-            renderTablaFacturas();
+            }).then(cargarFacturasDesdeMySQL);
 
             localStorage.setItem('arbitraje_seq_fact', String(seq + 1));
             localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
@@ -1000,8 +1041,8 @@ function generarYDescargarXML() {
     localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
 }
 
-// Render inicial
-renderTablaFacturas();
+// Carga inicial desde MySQL
+cargarFacturasDesdeMySQL();
 </script>
 </body>
 </html>
