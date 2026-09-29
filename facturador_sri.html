@@ -102,11 +102,12 @@
                         <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Cliente</th>
                         <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap; text-align:right;">Total USD</th>
                         <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Nro. Autorización</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Observación</th>
                     </tr>
                 </thead>
                 <tbody id="tbody-facturas">
                     <tr>
-                        <td colspan="6" style="padding:30px; text-align:center; color:#4a5568;">
+                        <td colspan="7" style="padding:30px; text-align:center; color:#4a5568;">
                             No hay facturas autorizadas aún
                         </td>
                     </tr>
@@ -178,7 +179,7 @@
 
         <!-- Leer Excel de transferencias (opcional) -->
         <div style="margin-bottom:16px;">
-            <button onclick="document.getElementById('excel-transferencias').click()"
+            <button onclick="document.getElementById('excel-transferencias').click()" tabindex="-1"
                 style="background:#1d4ed8; color:#fff; border:none; border-radius:8px; padding:8px 14px;
                        font-size:12px; font-weight:700; cursor:pointer; width:100%;">
                 📊 Leer Excel de transferencias
@@ -413,7 +414,7 @@ async function guardarFacturaSRI(datos) {
 
 async function cargarFacturasDesdeMySQL() {
     const tbody = document.getElementById('tbody-facturas');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:#4a5568;">Cargando desde MySQL…</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="padding:30px;text-align:center;color:#4a5568;">Cargando desde MySQL…</td></tr>`;
     try {
         const resp = await fetch(CFB_SERVER_URL + '/facturas-historial');
         const data = await resp.json();
@@ -430,15 +431,27 @@ async function cargarFacturasDesdeMySQL() {
         }));
         renderTablaFacturas();
     } catch(e) {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:#f87171;">Error al cargar desde MySQL: ${e.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="padding:30px;text-align:center;color:#f87171;">Error al cargar desde MySQL: ${e.message}</td></tr>`;
     }
+}
+
+function resumirObservacion(obs) {
+    if (!obs) return '-';
+    const mBanco   = obs.match(/Banco:\s*([^\n]+)/i);
+    const mFecha   = obs.match(/Fecha:\s*([^\n]+)/i);
+    const mImporte = obs.match(/Transferencia recibida \(usd\):\s*([\d.,]+)/i);
+    const partes = [];
+    if (mBanco)   partes.push(mBanco[1].trim());
+    if (mFecha)   partes.push(mFecha[1].trim());
+    if (mImporte) partes.push('$' + mImporte[1].trim());
+    return partes.length ? partes.join(' · ') : '-';
 }
 
 function renderTablaFacturas() {
     const tbody = document.getElementById('tbody-facturas');
     if (!tbody) return;
     if (!facturasSRI.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding:30px;text-align:center;color:#4a5568;">No hay facturas autorizadas aún</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="padding:30px;text-align:center;color:#4a5568;">No hay facturas autorizadas aún</td></tr>`;
         return;
     }
     tbody.innerHTML = facturasSRI.map((f, i) => `
@@ -449,6 +462,7 @@ function renderTablaFacturas() {
             <td style="padding:10px 12px;color:#94a3b8;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.cliente||'CONSUMIDOR FINAL'}</td>
             <td style="padding:10px 12px;color:#4ade80;text-align:right;font-weight:700;">$${parseFloat(f.total||0).toFixed(2)}</td>
             <td style="padding:10px 12px;color:#718096;font-family:monospace;font-size:10px;white-space:nowrap;" title="${f.nroAut||''}">${f.nroAut?f.nroAut.slice(0,24)+'...':'-'}</td>
+            <td style="padding:10px 12px;color:#94a3b8;font-size:11px;white-space:nowrap;" title="${(f.observacion||'').replace(/"/g,'&quot;')}">${resumirObservacion(f.observacion)}</td>
         </tr>
     `).join('');
 }
