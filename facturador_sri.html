@@ -76,6 +76,21 @@
 
 <div style="max-width:800px; margin:0 auto; padding:24px 16px;">
 
+    <!-- TABS -->
+    <div style="display:flex; gap:4px; margin-bottom:16px; background:#0f1117; border-radius:10px; padding:4px;">
+        <button onclick="mostrarPanel('facturas')" id="btn-tab-facturas"
+            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+                   background:#1a1f2e; color:#f7c948; letter-spacing:0.5px;">
+            📄 Facturas
+        </button>
+        <button onclick="mostrarPanel('borradores')" id="btn-tab-borradores"
+            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+                   background:transparent; color:#718096; letter-spacing:0.5px;">
+            📝 Facturas Guardadas
+        </button>
+    </div>
+
+    <div id="panel-facturas">
     <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
             <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">FACTURAS SRI — FIRMADAS Y ENVIADAS</div>
@@ -114,6 +129,30 @@
                 </tbody>
             </table>
         </div>
+    </div>
+    </div>
+
+    <div id="panel-borradores" style="display:none;">
+    <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
+        <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px; margin-bottom:6px;">FACTURAS GUARDADAS — SIN AUTORIZAR AÚN</div>
+        <div style="font-size:11px; color:#718096; margin-bottom:16px;">Se guardan automáticamente al generar el XML. Tocá una fila para continuarla.</div>
+        <div style="overflow-x:auto;">
+            <table id="tabla-borradores" style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                    <tr style="background:#0f1117; color:#94a3b8; text-align:left;">
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Secuencial</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Cliente</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap; text-align:right;">Monto</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Última edición</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-borradores">
+                    <tr><td colspan="5" style="padding:30px; text-align:center; color:#4a5568;">No hay facturas guardadas</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
     </div>
 
 </div>
@@ -433,6 +472,117 @@ async function cargarFacturasDesdeMySQL() {
     } catch(e) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="padding:30px;text-align:center;color:#f87171;">Error al cargar desde MySQL: ${e.message}</td></tr>`;
     }
+}
+
+/* ══════════════════════════════
+   PESTAÑAS Y BORRADORES
+══════════════════════════════ */
+function mostrarPanel(panel) {
+    const esFacturas = panel === 'facturas';
+    document.getElementById('panel-facturas').style.display   = esFacturas ? 'block' : 'none';
+    document.getElementById('panel-borradores').style.display = esFacturas ? 'none' : 'block';
+
+    const btnF = document.getElementById('btn-tab-facturas');
+    const btnB = document.getElementById('btn-tab-borradores');
+    btnF.style.background = esFacturas ? '#1a1f2e' : 'transparent';
+    btnF.style.color      = esFacturas ? '#f7c948' : '#718096';
+    btnB.style.background = esFacturas ? 'transparent' : '#1a1f2e';
+    btnB.style.color      = esFacturas ? '#718096' : '#f7c948';
+
+    if (!esFacturas) cargarBorradores();
+}
+
+// Junta los datos del formulario en un solo objeto. La usan tanto el guardado
+// automatico de borrador como el armado del XML, para no repetir la lectura
+// de cada campo en dos lugares distintos.
+function recolectarDatosFormulario() {
+    const seq = parseInt(document.getElementById('xml-secuencial').value) || 1;
+    return {
+        secuencial:   seq,
+        numero:       `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`,
+        cedula:       document.getElementById('xml-cedula').value.trim(),
+        nombre:       document.getElementById('xml-nombre').value.trim(),
+        monto:        parseFloat(document.getElementById('xml-ganancia')?.value) || 0,
+        formaPago:    document.getElementById('xml-forma-pago')?.value || '20',
+        fechaEmision: document.getElementById('xml-fecha-emision')?.value || hoyEcuador(),
+        observacion:  document.getElementById('xml-concepto').value,
+        claveAcceso:  _claveAccesoGenerada || null,
+        empresaId:    'facturador_sri'
+    };
+}
+
+// Guarda (o actualiza) el borrador en MySQL. No frena el flujo si falla:
+// es un resguardo, no debe bloquear la generacion/envio de la factura.
+async function guardarBorradorActual() {
+    try {
+        const datos = recolectarDatosFormulario();
+        await fetch(CFB_SERVER_URL + '/facturas-borrador', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(datos)
+        });
+    } catch(e) {
+        console.error('No se pudo guardar el borrador:', e.message);
+    }
+}
+
+// Borra el borrador una vez que la factura ya quedo autorizada de verdad.
+async function eliminarBorradorActual(secuencial) {
+    try {
+        await fetch(CFB_SERVER_URL + '/facturas-borrador/' + secuencial + '?empresaId=facturador_sri', {
+            method: 'DELETE'
+        });
+    } catch(e) {
+        console.error('No se pudo eliminar el borrador:', e.message);
+    }
+}
+
+let _borradoresCache = [];
+
+async function cargarBorradores() {
+    const tbody = document.getElementById('tbody-borradores');
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:#4a5568;">Cargando…</td></tr>`;
+    try {
+        const resp = await fetch(CFB_SERVER_URL + '/facturas-borrador');
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || 'Error desconocido');
+        _borradoresCache = data.borradores;
+        if (!_borradoresCache.length) {
+            tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:#4a5568;">No hay facturas guardadas</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = _borradoresCache.map((b, i) => `
+            <tr onclick="precargarBorrador(${b.secuencial})" style="cursor:pointer; border-bottom:1px solid #1a1f2e;${i%2===0?'background:#0f1117':''};">
+                <td style="padding:10px 12px;color:#60a5fa;font-family:monospace;">${b.secuencial}</td>
+                <td style="padding:10px 12px;color:#94a3b8;">${b.nombre || '-'}</td>
+                <td style="padding:10px 12px;color:#4ade80;text-align:right;font-weight:700;">$${parseFloat(b.monto||0).toFixed(2)}</td>
+                <td style="padding:10px 12px;color:#718096;font-size:11px;white-space:nowrap;">${new Date(b.actualizado_en).toLocaleString('es-EC',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+                <td style="padding:10px 12px;color:#4a5568; font-size:11px;">Tocar para continuar →</td>
+            </tr>
+        `).join('');
+    } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:#f87171;">Error: ${e.message}</td></tr>`;
+    }
+}
+
+// Precarga el modal con los datos de un borrador guardado, usando el mismo
+// borrador para todos los campos que abrirFacturaDirecta() dejaria vacios.
+async function precargarBorrador(secuencial) {
+    const b = _borradoresCache.find(x => x.secuencial === secuencial);
+    if (!b) return;
+
+    await abrirFacturaDirecta(); // arma el modal con su estructura normal
+
+    document.getElementById('xml-secuencial').value   = b.secuencial;
+    document.getElementById('xml-cedula').value        = b.cedula || '9999999999999';
+    document.getElementById('xml-nombre').value         = b.nombre || 'CONSUMIDOR FINAL';
+    document.getElementById('xml-ganancia').value       = b.monto || '';
+    document.getElementById('xml-forma-pago').value     = b.forma_pago || '20';
+    document.getElementById('xml-concepto').value       = b.observacion || '';
+    if (b.fecha_emision && document.getElementById('xml-fecha-emision')) {
+        document.getElementById('xml-fecha-emision').value = b.fecha_emision;
+    }
+    mostrarPanel('facturas');
 }
 
 function resumirObservacion(obs) {
@@ -787,6 +937,8 @@ async function enviarAlSRI() {
     document.getElementById('xml-preview').style.display = 'block';
     document.getElementById('xml-preview-label').style.display = 'block';
 
+    guardarBorradorActual(); // resguardo: no se pierde el trabajo aunque falle el envío
+
     setSriStatus('⏳ Enviando al SRI…', 'loading');
 
     const ganancia = parseFloat(document.getElementById('xml-ganancia')?.value) || 0;
@@ -843,6 +995,7 @@ async function enviarAlSRI() {
                 nroAut,
                 fechaAut:     new Date(fechaAut).toLocaleString('es-EC',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
             }).then(cargarFacturasDesdeMySQL);
+            eliminarBorradorActual(seq); // ya quedo en facturas_historial, el borrador sobra
 
             localStorage.setItem('arbitraje_seq_fact', String(seq + 1));
             localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
@@ -1040,6 +1193,8 @@ function generarYDescargarXML() {
 
     document.getElementById('btn-enviar-sri').style.display = 'inline-block';
     setSriStatus('✅ XML generado. Tocá "Enviar al SRI" para autorizar.', 'ok');
+
+    guardarBorradorActual(); // resguardo: queda en "Facturas Guardadas" aunque no se envie todavia
 
     const blob = new Blob([xml], { type: 'application/xml' });
     const url  = URL.createObjectURL(blob);
