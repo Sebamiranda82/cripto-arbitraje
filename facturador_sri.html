@@ -986,15 +986,28 @@ async function enviarAlSRI() {
         });
         const data = await resp.json();
 
+        // El servidor puede haber reintentado solo con otro numero si el
+        // original ya estaba "SECUENCIAL REGISTRADO" en el SRI. Usamos
+        // SIEMPRE el numero real que devuelve (secuencialUsado), no el
+        // que mandamos, para que lo que se muestra y se guarda sea lo real.
+        const seqReal = data.secuencialUsado || seq;
+        const claveAccesoReal = data.claveAcceso || claveAcceso;
+        const numeroReal = `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seqReal).padStart(9,'0')}`;
+
+        if (seqReal !== seq) {
+            document.getElementById('xml-secuencial').value = seqReal;
+            setSriStatus(`ℹ️ El secuencial ${seq} ya estaba usado en el SRI. Se reintentó automáticamente con el ${seqReal}.`, 'loading');
+        }
+
         if (data.ok && (data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion)) {
             const nroAut = data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion;
             const fechaAut = data.fechaAutorizacion || data.autorizacion?.fechaAutorizacion || new Date().toISOString();
-            setSriStatus(`✅ AUTORIZADA · Nro: ${nroAut}`, 'ok');
+            setSriStatus(`✅ AUTORIZADA · Nro: ${numeroReal} · ${nroAut}`, 'ok');
 
             _facturaAutorizada = {
                 nroAut, fechaAut,
-                claveAcceso,
-                secuencial: `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`,
+                claveAcceso: claveAccesoReal,
+                secuencial: numeroReal,
                 cedula: document.getElementById('xml-cedula').value,
                 nombre: document.getElementById('xml-nombre').value,
                 monto: document.getElementById('xml-ganancia').value,
@@ -1009,17 +1022,18 @@ async function enviarAlSRI() {
                 : '';
             guardarFacturaSRI({
                 fechaEmision: fechaEmisionFmt,
-                numero:       `${EMISOR.estab}-${EMISOR.ptoEmi}-${String(seq).padStart(9,'0')}`,
+                numero:       numeroReal,
                 cliente:      document.getElementById('xml-nombre').value || 'CONSUMIDOR FINAL',
                 total:        document.getElementById('xml-ganancia').value,
                 observacion:  document.getElementById('xml-concepto').value,
                 nroAut,
                 fechaAut:     new Date(fechaAut).toLocaleString('es-EC',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
             }).then(cargarFacturasDesdeMySQL);
-            eliminarBorradorActual(seq); // ya quedo en facturas_historial, el borrador sobra
+            eliminarBorradorActual(seq); // el borrador original ya no hace falta, haya cambiado el numero o no
+            if (seqReal !== seq) eliminarBorradorActual(seqReal);
 
-            localStorage.setItem('arbitraje_seq_fact', String(seq + 1));
-            localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
+            localStorage.setItem('arbitraje_seq_fact', String(seqReal + 1));
+            localStorage.setItem('cfb_seq_fact_v1',    String(seqReal + 1));
         } else {
             let msg = '';
             if (typeof data.error === 'string')           msg = data.error;
@@ -1027,7 +1041,7 @@ async function enviarAlSRI() {
             else if (data.autorizacion?.mensajes?.length) msg = data.autorizacion.mensajes.map(m => m.mensaje || m).join(' · ');
             else if (data.estado)                         msg = `Estado: ${data.estado}`;
             else                                          msg = JSON.stringify(data).slice(0, 200);
-            setSriStatus(`❌ ${msg}`, 'error');
+            setSriStatus(`❌ ${msg} (secuencial probado: ${seqReal})`, 'error');
         }
     } catch(e) {
         setSriStatus(`❌ Error de conexión: ${e.message}`, 'error');
