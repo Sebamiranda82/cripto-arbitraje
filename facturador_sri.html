@@ -42,8 +42,27 @@
         .modal-input {
             background: #0f1117; border: 1px solid #374151; border-radius: 8px;
             padding: 10px 14px; color: #e2e8f0; font-size: 14px; width: 100%; outline: none;
+            box-sizing: border-box;
         }
         .modal-input:focus { border-color: #4a6fa5; }
+
+        /* En celular (por defecto) cada campo ocupa toda la fila. */
+        .form-grid-2, .form-grid-3 { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
+        .form-field .label-sm { margin-bottom: 6px; }
+
+        /* En pantallas anchas (PC) se agrupan en 2 o 3 columnas por fila,
+           para no tener que bajar tanto con scroll. */
+        @media (min-width: 640px) {
+            .modal-box { max-width: 720px; }
+            .form-grid-2 { grid-template-columns: 1fr 1fr; }
+            .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        }
+
+        .btn-toggle-preview {
+            background: #1a1f2e; color: #94a3b8; border: 1px solid #374151; border-radius: 7px;
+            padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer; margin-top: 8px;
+        }
+        .btn-toggle-preview:hover { color: #e2e8f0; }
 
         /* Modal directorio contrapartes */
         #modal-directorio {
@@ -177,36 +196,41 @@
         </div>
 
         <!-- Datos cliente -->
-        <div style="margin-bottom:14px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">CÉDULA / RUC DEL CLIENTE</label>
-            <input class="modal-input" id="xml-cedula" type="text" maxlength="13"
-                placeholder="Ej: 0912345678 (10 dígitos) o RUC 13 dígitos"
-                oninput="this.value=this.value.replace(/\D/g,'')">
+        <div class="form-grid-2">
+            <div class="form-field">
+                <label class="label-sm" style="font-size:12px; display:block;">CÉDULA / RUC DEL CLIENTE</label>
+                <input class="modal-input" id="xml-cedula" type="text" maxlength="13"
+                    placeholder="Ej: 0912345678 (10 dígitos) o RUC 13 dígitos"
+                    oninput="this.value=this.value.replace(/\D/g,'')">
+            </div>
+            <div class="form-field">
+                <label class="label-sm" style="font-size:12px; display:block;">NOMBRE / RAZÓN SOCIAL DEL CLIENTE</label>
+                <input class="modal-input" id="xml-nombre" type="text" placeholder="Ej: JUAN PEREZ GOMEZ"
+                    oninput="this.value=this.value.toUpperCase()">
+            </div>
         </div>
-        <div style="margin-bottom:14px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">NOMBRE / RAZÓN SOCIAL DEL CLIENTE</label>
-            <input class="modal-input" id="xml-nombre" type="text" placeholder="Ej: JUAN PEREZ GOMEZ"
-                oninput="this.value=this.value.toUpperCase()">
-        </div>
-        <div style="margin-bottom:14px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">
-                NÚMERO SECUENCIAL
-                <span style="color:#4a5568; font-weight:400;">(editable)</span>
-            </label>
-            <input class="modal-input" id="xml-secuencial" type="number" placeholder="Ej: 1" min="1">
-        </div>
-        <div style="margin-bottom:16px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">FORMA DE PAGO</label>
-            <select class="modal-input" id="xml-forma-pago" style="font-size:13px; cursor:pointer;">
-                <option value="20" selected>20 - Otros con utilización del sistema financiero</option>
-                <option value="01">01 - Sin utilización del sistema financiero (efectivo)</option>
-                <option value="15">15 - Compensación de deudas</option>
-                <option value="16">16 - Tarjeta de débito</option>
-                <option value="17">17 - Dinero electrónico</option>
-                <option value="18">18 - Tarjeta prepago</option>
-                <option value="19">19 - Tarjeta de crédito</option>
-                <option value="21">21 - Endoso de títulos</option>
-            </select>
+
+        <div class="form-grid-2">
+            <div class="form-field">
+                <label class="label-sm" style="font-size:12px; display:block;">
+                    NÚMERO SECUENCIAL
+                    <span style="color:#4a5568; font-weight:400;">(editable)</span>
+                </label>
+                <input class="modal-input" id="xml-secuencial" type="number" placeholder="Ej: 1" min="1">
+            </div>
+            <div class="form-field">
+                <label class="label-sm" style="font-size:12px; display:block;">FORMA DE PAGO</label>
+                <select class="modal-input" id="xml-forma-pago" style="font-size:13px; cursor:pointer;">
+                    <option value="20" selected>20 - Otros con utilización del sistema financiero</option>
+                    <option value="01">01 - Sin utilización del sistema financiero (efectivo)</option>
+                    <option value="15">15 - Compensación de deudas</option>
+                    <option value="16">16 - Tarjeta de débito</option>
+                    <option value="17">17 - Dinero electrónico</option>
+                    <option value="18">18 - Tarjeta prepago</option>
+                    <option value="19">19 - Tarjeta de crédito</option>
+                    <option value="21">21 - Endoso de títulos</option>
+                </select>
+            </div>
         </div>
 
         <!-- COMISIÓN A FACTURAR -->
@@ -231,27 +255,29 @@
             </div>
         </div>
 
-        <div style="margin-bottom:16px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">💵 IMPORTE DE TRANSFERENCIA (USD)</label>
-            <input class="modal-input" id="obs-importe" type="number" step="0.01" placeholder="Ej: 250" style="font-size:13px;" oninput="actualizarObservacion()">
-        </div>
-        <div style="margin-bottom:16px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">📅 FECHA DE TRANSFERENCIA</label>
-            <input class="modal-input" id="obs-fecha" type="date" style="font-size:13px;" onchange="actualizarObservacion()">
-        </div>
-        <div style="margin-bottom:16px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">🏦 BANCO</label>
-            <select class="modal-input" id="obs-banco" style="font-size:13px; cursor:pointer;" onchange="actualizarObservacion()">
-                <option value="">Seleccioná un banco...</option>
-                <option value="Pacifico">Pacífico</option>
-                <option value="Internacional">Internacional</option>
-                <option value="Bolivariano">Bolivariano</option>
-            </select>
+        <div class="form-grid-3">
+            <div class="form-field">
+                <label class="label-sm" style="font-size:12px; display:block;">💵 IMPORTE TRANSF. (USD)</label>
+                <input class="modal-input" id="obs-importe" type="number" step="0.01" placeholder="Ej: 250" style="font-size:13px;" oninput="actualizarObservacion()">
+            </div>
+            <div class="form-field">
+                <label class="label-sm" style="font-size:12px; display:block;">📅 FECHA TRANSF.</label>
+                <input class="modal-input" id="obs-fecha" type="date" style="font-size:13px;" onchange="actualizarObservacion()">
+            </div>
+            <div class="form-field">
+                <label class="label-sm" style="font-size:12px; display:block;">🏦 BANCO</label>
+                <select class="modal-input" id="obs-banco" style="font-size:13px; cursor:pointer;" onchange="actualizarObservacion()">
+                    <option value="">Seleccioná...</option>
+                    <option value="Pacifico">Pacífico</option>
+                    <option value="Internacional">Internacional</option>
+                    <option value="Bolivariano">Bolivariano</option>
+                </select>
+            </div>
         </div>
 
         <div style="margin-bottom:16px;">
             <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block;">OBSERVACIÓN <span style="color:#4a5568;">(generada automáticamente · va en infoAdicional del XML)</span></label>
-            <textarea class="modal-input" id="xml-concepto" rows="6" style="font-size:12px; font-family:monospace; resize:vertical;"></textarea>
+            <textarea class="modal-input" id="xml-concepto" rows="4" style="font-size:12px; font-family:monospace; resize:vertical;"></textarea>
         </div>
 
         <!-- Botones -->
@@ -276,7 +302,10 @@
             📄 Ver Factura en el SRI
         </button>
 
-        <!-- Preview XML -->
+        <!-- Preview XML: oculto por defecto, se abre con el botón -->
+        <button type="button" id="btn-toggle-preview" onclick="toggleXmlPreview()" class="btn-toggle-preview" style="display:none;">
+            👁 Ver XML generado
+        </button>
         <div id="xml-preview-label" style="font-size:10px; color:#4a5568; margin-top:8px; display:none;">PREVIEW XML</div>
         <div class="xml-preview" id="xml-preview" style="display:none;"></div>
     </div>
@@ -807,6 +836,7 @@ function nuevaFactura() {
     document.getElementById('btn-enviar-sri').style.display   = 'none';
     document.getElementById('xml-preview').style.display      = 'none';
     document.getElementById('xml-preview-label').style.display = 'none';
+    document.getElementById('btn-toggle-preview').style.display = 'none';
     _xmlGenerado = null;
     _claveAccesoGenerada = null;
     _facturaAutorizada   = null;
@@ -955,8 +985,8 @@ async function enviarAlSRI() {
     _claveAccesoGenerada = claveAcceso;
 
     document.getElementById('xml-preview').textContent = xml;
-    document.getElementById('xml-preview').style.display = 'block';
-    document.getElementById('xml-preview-label').style.display = 'block';
+    document.getElementById('btn-toggle-preview').style.display = 'inline-block';
+    document.getElementById('btn-toggle-preview').textContent = '👁 Ver XML generado';
 
     guardarBorradorActual(); // resguardo: no se pierde el trabajo aunque falle el envío
 
@@ -1048,6 +1078,17 @@ async function enviarAlSRI() {
     } finally {
         document.getElementById('btn-enviar-sri').disabled = false;
     }
+}
+
+// Muestra/oculta el preview del XML, para no ocupar pantalla de entrada.
+function toggleXmlPreview() {
+    const div   = document.getElementById('xml-preview');
+    const label = document.getElementById('xml-preview-label');
+    const btn   = document.getElementById('btn-toggle-preview');
+    const visible = div.style.display === 'block';
+    div.style.display   = visible ? 'none' : 'block';
+    label.style.display = visible ? 'none' : 'block';
+    btn.textContent = visible ? '👁 Ver XML generado' : '🙈 Ocultar XML';
 }
 
 function cerrarModal() {
@@ -1223,8 +1264,8 @@ function generarYDescargarXML() {
     _claveAccesoGenerada = claveAcceso;
 
     document.getElementById('xml-preview').textContent = xml;
-    document.getElementById('xml-preview').style.display = 'block';
-    document.getElementById('xml-preview-label').style.display = 'block';
+    document.getElementById('btn-toggle-preview').style.display = 'inline-block';
+    document.getElementById('btn-toggle-preview').textContent = '👁 Ver XML generado';
 
     document.getElementById('btn-enviar-sri').style.display = 'inline-block';
     setSriStatus('✅ XML generado. Tocá "Enviar al SRI" para autorizar.', 'ok');
