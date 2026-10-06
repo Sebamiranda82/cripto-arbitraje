@@ -243,13 +243,19 @@
                 style="font-size:14px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534;">
         </div>
 
-        <!-- Leer Excel de transferencias (opcional) -->
+        <!-- Leer Excel de transferencias (opcional): se elige el archivo UNA
+             vez por sesion; despues el boton solo muestra/oculta la lista
+             ya leida, sin volver a pedir el archivo. -->
         <div style="margin-bottom:16px;">
-            <button onclick="document.getElementById('excel-transferencias').click()" tabindex="-1"
+            <button id="btn-leer-excel" onclick="manejarBotonExcel()" tabindex="-1"
                 style="background:#1d4ed8; color:#fff; border:none; border-radius:8px; padding:8px 14px;
                        font-size:12px; font-weight:700; cursor:pointer; width:100%;">
                 📊 Leer Excel de transferencias
             </button>
+            <div id="excel-cargado-info" style="display:none; margin-top:6px; font-size:11px; color:#4a5568; text-align:center;">
+                Excel cargado: <span id="excel-nombre-archivo"></span> ·
+                <a href="#" onclick="document.getElementById('excel-transferencias').click(); return false;" style="color:#60a5fa;">cambiar archivo</a>
+            </div>
             <input type="file" id="excel-transferencias" accept=".xlsx,.xls,.csv" style="display:none;"
                 onchange="leerExcelTransferencias(event)">
             <div id="lista-transferencias" style="display:none; margin-top:10px; max-height:200px; overflow-y:auto;
@@ -605,6 +611,39 @@ async function eliminarBorradorActual(secuencial) {
 
 let _borradoresCache = [];
 
+/* ══════════════════════════════
+   EXCEL DE TRANSFERENCIAS: se carga UNA vez por sesion y se reutiliza
+   para todas las facturas que siguen, sin volver a pedir el archivo.
+══════════════════════════════ */
+let _transferenciasCache = [];
+
+// Se llama cada vez que se abre el modal para una factura (nueva o
+// continuada): deja la lista colapsada y el boton reflejando si ya hay
+// un Excel cargado en esta sesion, sin volver a pedirlo.
+function sincronizarBotonExcel() {
+    document.getElementById('lista-transferencias').style.display = 'none';
+    document.getElementById('btn-leer-excel').textContent =
+        _transferenciasCache.length ? '👁 Ver transferencias' : '📊 Leer Excel de transferencias';
+}
+
+function manejarBotonExcel() {
+    if (!_transferenciasCache.length) {
+        // Primera vez: pedimos el archivo.
+        document.getElementById('excel-transferencias').click();
+        return;
+    }
+    // Ya esta cargado: solo mostramos/ocultamos la lista.
+    const div = document.getElementById('lista-transferencias');
+    const visible = div.style.display === 'block';
+    if (visible) {
+        div.style.display = 'none';
+        document.getElementById('btn-leer-excel').textContent = '👁 Ver transferencias';
+    } else {
+        mostrarListaTransferencias(_transferenciasCache);
+        document.getElementById('btn-leer-excel').textContent = '🙈 Ocultar transferencias';
+    }
+}
+
 async function cargarBorradores() {
     const tbody = document.getElementById('tbody-borradores');
     tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:#4a5568;">Cargando…</td></tr>`;
@@ -830,6 +869,10 @@ function leerExcelTransferencias(event) {
             transferencias.push({ banco, fecha, importe: valorRaw, concepto });
         }
 
+        _transferenciasCache = transferencias;
+        document.getElementById('excel-cargado-info').style.display = 'block';
+        document.getElementById('excel-nombre-archivo').textContent = file.name;
+        document.getElementById('btn-leer-excel').textContent = '🙈 Ocultar transferencias';
         mostrarListaTransferencias(transferencias);
     };
     reader.readAsArrayBuffer(file);
@@ -871,6 +914,7 @@ function seleccionarTransferencia(idx) {
 
     actualizarObservacion();
     div.style.display = 'none';
+    document.getElementById('btn-leer-excel').textContent = '👁 Ver transferencias';
 }
 
 // RUC del proveedor del sistema de facturacion electronica usado para emitir
@@ -907,6 +951,7 @@ function nuevaFactura() {
     document.getElementById('obs-importe').value  = '';
     document.getElementById('obs-banco').value    = '';
     actualizarObservacion(); // deja la linea obligatoria del RUC del proveedor del sistema
+    sincronizarBotonExcel();
     document.getElementById('xml-fecha-emision') && (document.getElementById('xml-fecha-emision').value = hoyEcuador());
     document.getElementById('sri-status').style.display      = 'none';
     document.getElementById('btn-ver-factura').style.display  = 'none';
@@ -973,6 +1018,7 @@ async function abrirFacturaDirecta() {
     document.getElementById('obs-fecha').value    = '';
     document.getElementById('obs-banco').value    = '';
     actualizarObservacion(); // deja la linea obligatoria del RUC del proveedor del sistema
+    sincronizarBotonExcel();
     document.getElementById('sri-status').style.display      = 'none';
     document.getElementById('btn-ver-factura').style.display = 'none';
     document.getElementById('btn-enviar-sri').style.display  = 'none';
