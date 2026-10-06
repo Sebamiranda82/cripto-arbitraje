@@ -507,6 +507,39 @@ async function cargarFacturasDesdeMySQL() {
     }
 }
 
+// Revisa unas pocas veces, sin bloquear el formulario, si la cola del
+// servidor ya resolvio la autorizacion de una factura puntual. Si el
+// usuario ya cerro el modal o paso a otra, no pasa nada: solo actualiza
+// el cartel de estado si sigue siendo relevante.
+async function verificarEstadoFinal(numeroFactura, intento) {
+    const MAX_INTENTOS_UI = 5;
+    if (intento >= MAX_INTENTOS_UI) return;
+
+    await new Promise(r => setTimeout(r, 6000));
+    try {
+        const resp = await fetch(CFB_SERVER_URL + '/facturas-historial');
+        const data = await resp.json();
+        if (!data.ok) return;
+        const fila = data.facturas.find(f => f.numero_factura_sri === numeroFactura);
+        if (!fila) return;
+
+        if (fila.estado_sri === 'AUTORIZADO') {
+            setSriStatus(`✅ AUTORIZADA · Nro: ${numeroFactura} · ${fila.numero_autorizacion || ''}`, 'ok');
+            cargarFacturasDesdeMySQL();
+            return;
+        }
+        if ((fila.estado_sri || '').startsWith('NO_AUTORIZADO')) {
+            setSriStatus(`❌ No autorizada · Nro: ${numeroFactura} · ${fila.estado_sri}`, 'error');
+            cargarFacturasDesdeMySQL();
+            return;
+        }
+        // Sigue pendiente: reintenta mas tarde, sin molestar si ya no hace falta.
+        verificarEstadoFinal(numeroFactura, intento + 1);
+    } catch(e) {
+        // Silencioso: esto es solo una comodidad visual, no algo critico.
+    }
+}
+
 /* ══════════════════════════════
    PESTAÑAS Y BORRADORES
 ══════════════════════════════ */
@@ -1039,7 +1072,23 @@ async function enviarAlSRI() {
             setSriStatus(`ℹ️ El secuencial ${seq} ya estaba usado en el SRI. Se reintentó automáticamente con el ${seqReal}.`, 'loading');
         }
 
-        if (data.ok && (data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion)) {
+        if (data.ok && data.pendienteAutorizacion) {
+            // Recibida por el SRI, autorizacion verificandose en segundo
+            // plano (en la cola del servidor). No es un error: es un
+            // trabajo en curso. Guardamos el numero y seguimos trabajando.
+            setSriStatus(`ℹ️ Enviada al SRI · Nro: ${numeroReal} · Verificando autorización, podés seguir facturando.`, 'loading');
+
+            eliminarBorradorActual(seq);
+            if (seqReal !== seq) eliminarBorradorActual(seqReal);
+            localStorage.setItem('arbitraje_seq_fact', String(seqReal + 1));
+            localStorage.setItem('cfb_seq_fact_v1',    String(seqReal + 1));
+            cargarFacturasDesdeMySQL(); // ya aparece en la tabla como "Pendiente"
+
+            // Reintenta mostrar el estado final unas pocas veces, sin bloquear
+            // el formulario: si para entonces la cola ya la resolvio, actualiza
+            // el cartel solo. Si no, el usuario la ve en la tabla igual.
+            verificarEstadoFinal(numeroReal, 0);
+        } else if (data.ok && (data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion)) {
             const nroAut = data.numeroAutorizacion || data.autorizacion?.numeroAutorizacion;
             const fechaAut = data.fechaAutorizacion || data.autorizacion?.fechaAutorizacion || new Date().toISOString();
             setSriStatus(`✅ AUTORIZADA · Nro: ${numeroReal} · ${nroAut}`, 'ok');
