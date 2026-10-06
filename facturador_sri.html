@@ -795,6 +795,12 @@ function seleccionarTransferencia(idx) {
     div.style.display = 'none';
 }
 
+// RUC del proveedor del sistema de facturacion electronica usado para emitir
+// este comprobante. Obligatorio en la informacion adicional de TODAS las
+// facturas, segun Resolucion SRI NAC-DGERCGC26-00000027 (registro de
+// proveedores de sistemas informaticos y servicios de facturacion electronica).
+const RUC_PROVEEDOR_SISTEMA = '0967482498001';
+
 function actualizarObservacion() {
     const importe = document.getElementById('obs-importe').value.trim();
     const fechaRaw = document.getElementById('obs-fecha').value;
@@ -812,6 +818,7 @@ function actualizarObservacion() {
     if (banco)       lineas.push(`Banco: ${banco}`);
     lineas.push('Es un intercambio de activo NO OBJETO DE IVA.');
     lineas.push('El total de la factura representa la comisión cobrada por el servicio');
+    lineas.push(`RUC proveedor sistema de facturación electrónica: ${RUC_PROVEEDOR_SISTEMA}`);
 
     document.getElementById('xml-concepto').value = lineas.join('\n');
 }
@@ -819,9 +826,9 @@ function actualizarObservacion() {
 function nuevaFactura() {
     document.getElementById('xml-cedula').value  = '9999999999999';
     document.getElementById('xml-nombre').value  = 'CONSUMIDOR FINAL';
-    document.getElementById('xml-concepto').value = '';
     document.getElementById('obs-importe').value  = '';
     document.getElementById('obs-banco').value    = '';
+    actualizarObservacion(); // deja la linea obligatoria del RUC del proveedor del sistema
     document.getElementById('xml-fecha-emision') && (document.getElementById('xml-fecha-emision').value = hoyEcuador());
     document.getElementById('sri-status').style.display      = 'none';
     document.getElementById('btn-ver-factura').style.display  = 'none';
@@ -887,7 +894,7 @@ async function abrirFacturaDirecta() {
     document.getElementById('obs-importe').value  = '';
     document.getElementById('obs-fecha').value    = '';
     document.getElementById('obs-banco').value    = '';
-    document.getElementById('xml-concepto').value = '';
+    actualizarObservacion(); // deja la linea obligatoria del RUC del proveedor del sistema
     document.getElementById('sri-status').style.display      = 'none';
     document.getElementById('btn-ver-factura').style.display = 'none';
     document.getElementById('btn-enviar-sri').style.display  = 'none';
