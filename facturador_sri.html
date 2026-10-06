@@ -765,6 +765,29 @@ function normalizarBanco(str) {
     return String(str).trim();
 }
 
+// Quita acentos y pasa a minuscula, para comparar encabezados sin
+// importar tildes/mayusculas (ej: "Fecha" = "fecha" = "FECHA").
+function normalizarEncabezado(s) {
+    return String(s || '').trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+// Convierte el valor de una celda de fecha (puede venir como objeto Date,
+// como texto "dd/mm/aaaa" o similar) al formato yyyy-mm-dd que usa el resto
+// de la app.
+function celdaAFechaISO(valor) {
+    if (!valor) return '';
+    if (valor instanceof Date && !isNaN(valor)) {
+        const y = valor.getFullYear();
+        const m = String(valor.getMonth() + 1).padStart(2, '0');
+        const d = String(valor.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+    return parsearFechaExcel(String(valor));
+}
+
+// Lee el Excel por NOMBRE DE COLUMNA exacto (sin importar el orden ni
+// mayusculas/acentos): Fecha, Valor, Banco, Concepto.
 function leerExcelTransferencias(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -772,30 +795,39 @@ function leerExcelTransferencias(event) {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-        const wb   = XLSX.read(e.target.result, { type: 'array' });
+        const wb   = XLSX.read(e.target.result, { type: 'array', cellDates: true });
         const ws   = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
 
+        if (!rows.length) { mostrarListaTransferencias([]); return; }
+
+        // startsWith en vez de igualdad exacta: asi "Fecha real", "Fecha
+        // transferencia", etc. tambien matchean con "fecha".
+        const encabezados = rows[0].map(normalizarEncabezado);
+        const buscarCol = (nombre) => encabezados.findIndex(h => h.startsWith(nombre));
+        const idxFecha    = buscarCol('fecha');
+        const idxValor    = buscarCol('valor');
+        const idxBanco    = buscarCol('banco');
+        const idxConcepto = buscarCol('concepto');
+
+        if (idxFecha === -1 || idxValor === -1 || idxBanco === -1) {
+            alert('⚠️ El Excel debe tener las columnas: Fecha, Valor, Banco (y opcionalmente Concepto). No encontré alguna de esas columnas en la primera fila.');
+            mostrarListaTransferencias([]);
+            return;
+        }
+
         const transferencias = [];
-        for (const row of rows) {
-            if (!row || row.length < 2) continue;
-            let banco = '', fecha = '', importe = '';
-            for (const cell of row) {
-                const s = String(cell).trim();
-                if (!s) continue;
-                if (/^[+\-]?\$?[\d,]+\.?\d*$/.test(s.replace(/\s/g,''))) {
-                    importe = s.replace(/[+$,]/g,'').trim();
-                }
-                else if (/\d{1,2}[\s\/]\w+[\s\/]\d{4}|\d{4}-\d{2}-\d{2}/.test(s)) {
-                    fecha = parsearFechaExcel(s);
-                }
-                else if (/PAC|BOL|INT|BANCO|PACIFICO|BOLIVARIANO|INTERNACIONAL/i.test(s)) {
-                    banco = normalizarBanco(s);
-                }
-            }
-            if (importe && (fecha || banco)) {
-                transferencias.push({ banco, fecha, importe });
-            }
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || !row.length) continue;
+
+            const fecha    = celdaAFechaISO(row[idxFecha]);
+            const valorRaw = String(row[idxValor] ?? '').replace(/[+$,]/g, '').trim();
+            const banco    = normalizarBanco(String(row[idxBanco] ?? ''));
+            const concepto = idxConcepto !== -1 ? String(row[idxConcepto] ?? '').trim() : '';
+
+            if (!valorRaw) continue; // sin valor no sirve como transferencia
+            transferencias.push({ banco, fecha, importe: valorRaw, concepto });
         }
 
         mostrarListaTransferencias(transferencias);
@@ -813,11 +845,14 @@ function mostrarListaTransferencias(lista) {
     div.style.display = 'block';
     div.innerHTML = lista.map((t, i) => `
         <div onclick="seleccionarTransferencia(${i})" data-idx="${i}"
-            style="padding:10px 14px; border-bottom:1px solid #1a1f2e; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
+            style="padding:10px 14px; border-bottom:1px solid #1a1f2e; cursor:pointer;"
             onmouseover="this.style.background='#1a1f2e'" onmouseout="this.style.background=''">
-            <span style="font-size:12px; color:#94a3b8;">${t.banco || '-'}</span>
-            <span style="font-size:12px; color:#e2e8f0;">${t.fecha ? (() => { const [y,m,d]=t.fecha.split('-'); return `${d}/${m}/${y}`; })() : '-'}</span>
-            <span style="font-size:13px; font-weight:700; color:#4ade80;">$${parseFloat(t.importe||0).toFixed(2)}</span>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:12px; color:#94a3b8;">${t.banco || '-'}</span>
+                <span style="font-size:12px; color:#e2e8f0;">${t.fecha ? (() => { const [y,m,d]=t.fecha.split('-'); return `${d}/${m}/${y}`; })() : '-'}</span>
+                <span style="font-size:13px; font-weight:700; color:#4ade80;">$${parseFloat(t.importe||0).toFixed(2)}</span>
+            </div>
+            ${t.concepto ? `<div style="font-size:11px; color:#4a5568; margin-top:2px;">${t.concepto}</div>` : ''}
         </div>
     `).join('');
 
