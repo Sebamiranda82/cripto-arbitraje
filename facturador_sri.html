@@ -13,6 +13,7 @@
     <script src="catalogo_cliente.js"></script>
     <script src="lineas_factura_cliente.js"></script>
     <script src="comision_cliente.js"></script>
+    <script src="texto_transferencia_cliente.js"></script>
     <script src="emisor_cliente.js"></script>
     <script src="certificado_cliente.js"></script>
     <script src="nota_credito_cliente.js"></script>
@@ -951,16 +952,17 @@ function mostrarListaTransferencias(lista) {
     div.style.display = 'block';
     // Una sola línea por transferencia: el banco toma el espacio sobrante (con "…" si no entra);
     // fecha e importe ocupan solo lo que miden.
+    const limpio = (txt) => TextoTransferencia.sinTitular(txt, EMISOR.razonSocial, EMISOR.nombreComercial);
     div.innerHTML = lista.map((t, i) => `
         <div onclick="seleccionarTransferencia(${i})" data-idx="${i}"
             style="padding:6px 10px; border-bottom:1px solid #1a1f2e; cursor:pointer;"
             onmouseover="this.style.background='#1a1f2e'" onmouseout="this.style.background=''">
             <div style="display:grid; grid-template-columns:minmax(0,1fr) auto auto; column-gap:10px; align-items:center; white-space:nowrap;">
-                <span style="font-size:12px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis;" title="${t.banco || ''}">${t.banco || '-'}</span>
+                <span style="font-size:12px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis;" title="${limpio(t.banco)}">${limpio(t.banco) || '-'}</span>
                 <span style="font-size:12px; color:#e2e8f0;">${t.fecha ? (() => { const [y,m,d]=t.fecha.split('-'); return `${d}/${m}/${y}`; })() : '-'}</span>
                 <span style="font-size:13px; font-weight:700; color:#4ade80; text-align:right;">$${parseFloat(t.importe||0).toFixed(2)}</span>
             </div>
-            ${t.concepto ? `<div style="font-size:11px; color:#4a5568; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.concepto}</div>` : ''}
+            ${limpio(t.concepto) ? `<div style="font-size:11px; color:#4a5568; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${limpio(t.concepto)}">${limpio(t.concepto)}</div>` : ''}
         </div>
     `).join('');
 
