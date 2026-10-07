@@ -950,19 +950,19 @@ function mostrarListaTransferencias(lista) {
         return;
     }
     div.style.display = 'block';
-    // Una sola línea por transferencia: el banco toma el espacio sobrante (con "…" si no entra);
-    // fecha e importe ocupan solo lo que miden.
+    // Una sola línea por transferencia, en 4 columnas: banco | fecha | importe | concepto.
+    // Las tres primeras tienen ancho fijo (así alinean entre filas); el concepto toma lo que sobra (con "…" si no entra).
     const limpio = (txt) => TextoTransferencia.sinTitular(txt, EMISOR.razonSocial, EMISOR.nombreComercial);
+    const fechaCorta = (f) => { if (!f) return '-'; const [y,m,d] = f.split('-'); return `${d}/${m}/${y}`; };
     div.innerHTML = lista.map((t, i) => `
         <div onclick="seleccionarTransferencia(${i})" data-idx="${i}"
-            style="padding:6px 10px; border-bottom:1px solid #1a1f2e; cursor:pointer;"
+            style="display:grid; grid-template-columns:84px 70px 68px minmax(0,1fr); column-gap:6px; align-items:center;
+                   white-space:nowrap; padding:6px 10px; border-bottom:1px solid #1a1f2e; cursor:pointer;"
             onmouseover="this.style.background='#1a1f2e'" onmouseout="this.style.background=''">
-            <div style="display:grid; grid-template-columns:minmax(0,1fr) auto auto; column-gap:10px; align-items:center; white-space:nowrap;">
-                <span style="font-size:12px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis;" title="${limpio(t.banco)}">${limpio(t.banco) || '-'}</span>
-                <span style="font-size:12px; color:#e2e8f0;">${t.fecha ? (() => { const [y,m,d]=t.fecha.split('-'); return `${d}/${m}/${y}`; })() : '-'}</span>
-                <span style="font-size:13px; font-weight:700; color:#4ade80; text-align:right;">$${parseFloat(t.importe||0).toFixed(2)}</span>
-            </div>
-            ${limpio(t.concepto) ? `<div style="font-size:11px; color:#4a5568; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${limpio(t.concepto)}">${limpio(t.concepto)}</div>` : ''}
+            <span style="font-size:12px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis;" title="${limpio(t.banco)}">${limpio(t.banco) || '-'}</span>
+            <span style="font-size:12px; color:#e2e8f0;">${fechaCorta(t.fecha)}</span>
+            <span style="font-size:13px; font-weight:700; color:#4ade80; text-align:right;">$${parseFloat(t.importe||0).toFixed(2)}</span>
+            <span style="font-size:11px; color:#4a5568; overflow:hidden; text-overflow:ellipsis;" title="${limpio(t.concepto)}">${limpio(t.concepto)}</span>
         </div>
     `).join('');
 
