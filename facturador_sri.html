@@ -949,16 +949,18 @@ function mostrarListaTransferencias(lista) {
         return;
     }
     div.style.display = 'block';
+    // Una sola línea por transferencia: el banco toma el espacio sobrante (con "…" si no entra);
+    // fecha e importe ocupan solo lo que miden.
     div.innerHTML = lista.map((t, i) => `
         <div onclick="seleccionarTransferencia(${i})" data-idx="${i}"
-            style="padding:10px 14px; border-bottom:1px solid #1a1f2e; cursor:pointer;"
+            style="padding:6px 10px; border-bottom:1px solid #1a1f2e; cursor:pointer;"
             onmouseover="this.style.background='#1a1f2e'" onmouseout="this.style.background=''">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size:12px; color:#94a3b8;">${t.banco || '-'}</span>
+            <div style="display:grid; grid-template-columns:minmax(0,1fr) auto auto; column-gap:10px; align-items:center; white-space:nowrap;">
+                <span style="font-size:12px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis;" title="${t.banco || ''}">${t.banco || '-'}</span>
                 <span style="font-size:12px; color:#e2e8f0;">${t.fecha ? (() => { const [y,m,d]=t.fecha.split('-'); return `${d}/${m}/${y}`; })() : '-'}</span>
-                <span style="font-size:13px; font-weight:700; color:#4ade80;">$${parseFloat(t.importe||0).toFixed(2)}</span>
+                <span style="font-size:13px; font-weight:700; color:#4ade80; text-align:right;">$${parseFloat(t.importe||0).toFixed(2)}</span>
             </div>
-            ${t.concepto ? `<div style="font-size:11px; color:#4a5568; margin-top:2px;">${t.concepto}</div>` : ''}
+            ${t.concepto ? `<div style="font-size:11px; color:#4a5568; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.concepto}</div>` : ''}
         </div>
     `).join('');
 
