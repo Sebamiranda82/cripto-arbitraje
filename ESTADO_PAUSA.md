@@ -26,3 +26,11 @@
 - Revisar primero db_productos.js de CFB y reutilizarlo; catálogo en MySQL por empresa, no en localStorage.
 - Verificar los códigos codigoPorcentaje del IVA contra la ficha técnica oficial del SRI antes de portar (CFB usa 10 para 15% y 8 para 5%, y su inventario marca un bug).
 - Pendiente: formato de la columna Iva, y si el Precio incluye IVA.
+
+## Corrección 06/10: registro y licencias
+- Cualquiera crea cuenta (correo+clave), pero crear empresa exige código de licencia sin usar (codigos_licencia). Sin empresa, req.empresaId=null y las rutas dan 401.
+- Códigos: POST /licencias/generar (x-admin-key = ADMIN_KEY). Reporte: GET /usuarios/nuevos-clientes.
+- Se trae server_registro_cliente.js, sin el bloque demo. Demo (demo_trial, demo_leads, demo_seguimiento) fuera.
+- ORDEN: generalizar /arbitraje/factura y /arbitraje/secuencial (hoy usan "FROM empresa LIMIT 1") ANTES de crear la primera empresa nueva.
+- ADMIN_KEY y CERT_ENCRYPTION_KEY: cargarlas en Railway (cada cambio redespliega) después del lote de facturas.
+- Ligar mi usuario a la empresa 13 con UPDATE, mostrándolo antes de ejecutar.
