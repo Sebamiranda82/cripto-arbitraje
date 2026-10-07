@@ -13,9 +13,12 @@
     <script src="catalogo_cliente.js"></script>
     <script src="lineas_factura_cliente.js"></script>
     <script src="comision_cliente.js"></script>
+    <script src="concepto_cliente.js"></script>
     <script src="texto_transferencia_cliente.js"></script>
     <script src="emisor_cliente.js"></script>
     <script src="certificado_cliente.js"></script>
+    <script src="datos_empresa_cliente.js"></script>
+    <script src="logo_empresa_cliente.js"></script>
     <script src="nota_credito_cliente.js"></script>
     <style>
         body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', 'Segoe UI', sans-serif; margin: 0; }
@@ -28,7 +31,9 @@
         /* ── Modal XML ── */
         /* El formulario de factura vive en la pestaña "Nueva Factura" (ya no es ventana flotante). */
         #modal-xml { display: block; }
-        #modal-xml .modal-box { width: 100%; max-width: none; max-height: none; overflow: visible; }
+        #modal-xml .modal-box { box-sizing: border-box; width: 100%; max-width: none; max-height: none; overflow: visible; padding: 12px; }
+        @media (min-width: 640px) { #modal-xml .modal-box { padding: 28px; } }
+        .form-grid-2 > *, .form-grid-3 > * { min-width: 0; }
         .modal-box {
             background: #1a1f2e; border: 1px solid #2d3748; border-radius: 16px;
             padding: 28px; width: 95%; max-width: 560px; max-height: 90vh; overflow-y: auto;
@@ -97,7 +102,7 @@
 <div style="background: linear-gradient(135deg,#1a1f2e 0%,#16213e 100%); border-bottom: 1px solid #2d3748; padding: 16px 24px;">
     <div style="max-width:800px; margin:0 auto;">
         <div style="display:flex; align-items:center; gap:12px;">
-            <div style="font-size:26px;">📄</div>
+            <div id="emisor-logo" style="font-size:26px;">📄</div>
             <div>
                 <div style="font-size:19px; font-weight:700; color:#f7c948; letter-spacing:-0.5px;">FACTURADOR SRI</div>
                 <div id="emisor-titulo" style="font-size:10px; color:#4a5568; letter-spacing:1px;">MIRANDA ANDRES SEBASTIAN · RIMPE NEGOCIO POPULAR</div>
@@ -115,34 +120,34 @@
 <div style="max-width:800px; margin:0 auto; padding:24px 16px;">
 
     <!-- TABS -->
-    <div style="display:flex; gap:4px; margin-bottom:16px; background:#0f1117; border-radius:10px; padding:4px;">
+    <div id="barra-tabs" style="display:flex; gap:4px; margin-bottom:16px; background:#0f1117; border-radius:10px; padding:4px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;">
         <button onclick="mostrarPanel('nueva')" id="btn-tab-nueva"
-            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+            style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:#1a1f2e; color:#f7c948; letter-spacing:0.5px;">
             ✚ Nueva Factura
         </button>
         <button onclick="mostrarPanel('facturas')" id="btn-tab-facturas"
-            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+            style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:transparent; color:#718096; letter-spacing:0.5px;">
             📄 Listado de Facturas
         </button>
         <button onclick="mostrarPanel('borradores')" id="btn-tab-borradores"
-            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+            style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:transparent; color:#718096; letter-spacing:0.5px;">
             📝 Facturas Guardadas
         </button>
         <button onclick="mostrarPanel('catalogo')" id="btn-tab-catalogo"
-            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+            style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:transparent; color:#718096; letter-spacing:0.5px;">
             📦 Catálogo
         </button>
         <button onclick="mostrarPanel('notas')" id="btn-tab-notas"
-            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+            style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:transparent; color:#718096; letter-spacing:0.5px;">
             ↩ Notas
         </button>
         <button onclick="mostrarPanel('empresa')" id="btn-tab-empresa"
-            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+            style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:transparent; color:#718096; letter-spacing:0.5px;">
             🏢 Empresa
         </button>
@@ -198,18 +203,23 @@
         </div>
 
         <!-- COMISIÓN A FACTURAR -->
-        <div style="background:#0a1a0a; border:1px solid #166534; border-radius:10px; padding:12px; margin-bottom:16px;">
-            <div style="display:flex; gap:10px; align-items:flex-end;">
-                <div style="flex:1; min-width:0;">
-                    <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block; color:#4ade80;">✅ MONTO A FACTURAR (USD)</label>
-                    <input class="modal-input" id="xml-ganancia" type="number" step="0.01" min="0"
-                        placeholder="Ej: 4.50"
-                        style="font-size:14px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534;">
+        <div style="background:#0a1a0a; border:1px solid #166534; border-radius:10px; padding:8px; margin-bottom:16px;">
+            <div style="display:flex; gap:6px; align-items:flex-end;">
+                <div style="flex:1 1 0; min-width:0;">
+                    <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block; color:#4ade80;">CONCEPTO</label>
+                    <input class="modal-input" id="xml-producto" type="text"
+                        style="font-size:12px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534; padding-left:8px; padding-right:6px; height:42px; box-sizing:border-box;">
                 </div>
-                <div style="width:84px;">
-                    <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block; color:#4ade80;">% COMISIÓN</label>
+                <div style="width:78px;">
+                    <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block; color:#4ade80;">MONTO USD</label>
+                    <input class="modal-input" id="xml-ganancia" type="number" step="0.01" min="0"
+                        placeholder="4.50"
+                        style="font-size:14px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534; padding-left:6px; padding-right:4px; height:42px; box-sizing:border-box;">
+                </div>
+                <div style="width:52px;">
+                    <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block; color:#4ade80;">% COM.</label>
                     <input class="modal-input" id="xml-pct" type="number" step="0.01" min="0" inputmode="decimal"
-                        style="font-size:14px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534;">
+                        style="font-size:14px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534; padding-left:6px; padding-right:2px; height:42px; box-sizing:border-box;">
                 </div>
             </div>
         </div>
@@ -349,8 +359,16 @@
 
     <div id="panel-notas" style="display:none;"></div>
     <div id="panel-empresa" style="display:none;">
-        <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:20px">
+        <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:20px;margin-bottom:12px">
             <div style="font-size:13px;font-weight:700;color:#94a3b8;letter-spacing:2px;margin-bottom:14px">MI EMPRESA</div>
+            <div id="empresa-datos"></div>
+        </div>
+        <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:20px;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:700;color:#94a3b8;letter-spacing:2px;margin-bottom:14px">LOGO</div>
+            <div id="empresa-logo"></div>
+        </div>
+        <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:20px">
+            <div style="font-size:13px;font-weight:700;color:#94a3b8;letter-spacing:2px;margin-bottom:14px">CERTIFICADO DE FIRMA</div>
             <div id="empresa-certificado"></div>
         </div>
     </div>
@@ -620,6 +638,7 @@ function mostrarPanel(panel) {
         const btn = document.getElementById('btn-tab-' + nombre);
         btn.style.background = activo ? '#1a1f2e' : 'transparent';
         btn.style.color      = activo ? '#f7c948' : '#718096';
+        if (activo && btn.scrollIntoView) btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
     if (panel === 'nueva' && !opXML) abrirFacturaDirecta(); // sin factura en curso: arma una nueva
     if (panel === 'borradores') cargarBorradores();
@@ -1018,6 +1037,7 @@ function nuevaFactura() {
     document.getElementById('xml-nombre').value  = 'CONSUMIDOR FINAL';
     document.getElementById('obs-importe').value  = '';
     document.getElementById('obs-banco').value    = '';
+    Concepto.reiniciar();
     actualizarObservacion(); // deja la linea obligatoria del RUC del proveedor del sistema
     sincronizarBotonExcel();
     document.getElementById('xml-fecha-emision') && (document.getElementById('xml-fecha-emision').value = hoyEcuador());
@@ -1082,6 +1102,7 @@ async function abrirFacturaDirecta() {
     document.getElementById('xml-forma-pago').value = '20';
     document.getElementById('xml-ganancia').value = '';
     Comision.reiniciar();
+    Concepto.reiniciar();
     LineasFactura.limpiar();
     document.getElementById('obs-importe').value  = '';
     document.getElementById('obs-fecha').value    = '';
@@ -1199,7 +1220,7 @@ async function enviarAlSRI() {
                     // Con productos de Excel el servidor decide el secuencial y arma el XML.
                     ...(LineasFactura.hay()
                         ? { lineas: LineasFactura.paraServidor() }
-                        : { secuencial: seq, estab: EMISOR.estab, ptoEmi: EMISOR.ptoEmi })
+                        : { descripcion: Concepto.valor(), secuencial: seq, estab: EMISOR.estab, ptoEmi: EMISOR.ptoEmi })
                 }
             }),
             signal: AbortSignal.timeout(120000)
@@ -1408,7 +1429,7 @@ function generarXML() {
     <detalles>
         <detalle>
             <codigoPrincipal>SRV-001</codigoPrincipal>
-            <descripcion>SERVICIOS PRESTADOS</descripcion>
+            <descripcion>${escXML(Concepto.valor())}</descripcion>
             <cantidad>1.000000</cantidad>
             <precioUnitario>${montoNum.toFixed(6)}</precioUnitario>
             <descuento>0.00</descuento>
@@ -1501,6 +1522,8 @@ function generarYDescargarXML() {
 const EXIGIR_LOGIN = false;
 Api.init(CFB_SERVER_URL);
 Catalogo.montarPanel(document.getElementById('panel-catalogo'));
+DatosEmpresa.montar(document.getElementById('empresa-datos'));
+LogoEmpresa.montar(document.getElementById('empresa-logo'));
 Certificado.montar(document.getElementById('empresa-certificado'));
 
 // Productos de Excel dentro del modal de factura: con líneas, el monto sale de ellas.
@@ -1509,8 +1532,10 @@ LineasFactura.montar(document.getElementById('bloque-productos'), () => {
     const hay = LineasFactura.hay();
     inp.readOnly = hay;
     Comision.bloquear(hay);
+    Concepto.bloquear(hay);
     if (hay) { inp.value = LineasFactura.total().toFixed(2); inp.dispatchEvent(new Event('input')); }
 });
+Concepto.montar(document.getElementById('xml-producto'));
 Comision.montar({ importe: document.getElementById('obs-importe'), pct: document.getElementById('xml-pct'), monto: document.getElementById('xml-ganancia') });
 NotaCredito.montarPanel(document.getElementById('panel-notas'), { badge: badgeEstado });
 Sesion.iniciar({ exigir: EXIGIR_LOGIN });
