@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Facturador SRI - MIRANDA ANDRES SEBASTIAN</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="iva_calculo.js"></script>
+    <script src="excel_utils.js"></script>
+    <script src="api_cliente.js"></script>
+    <script src="ui_modal.js"></script>
+    <script src="sesion_ui.js"></script>
+    <script src="catalogo_cliente.js"></script>
+    <script src="lineas_factura_cliente.js"></script>
+    <script src="emisor_cliente.js"></script>
+    <script src="certificado_cliente.js"></script>
+    <script src="nota_credito_cliente.js"></script>
     <style>
         body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', 'Segoe UI', sans-serif; margin: 0; }
         input[type=number]::-webkit-inner-spin-button,
@@ -91,7 +101,7 @@
             <div style="font-size:26px;">📄</div>
             <div>
                 <div style="font-size:19px; font-weight:700; color:#f7c948; letter-spacing:-0.5px;">FACTURADOR SRI</div>
-                <div style="font-size:10px; color:#4a5568; letter-spacing:1px;">MIRANDA ANDRES SEBASTIAN · RIMPE NEGOCIO POPULAR</div>
+                <div id="emisor-titulo" style="font-size:10px; color:#4a5568; letter-spacing:1px;">MIRANDA ANDRES SEBASTIAN · RIMPE NEGOCIO POPULAR</div>
             </div>
             <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
                 <button onclick="abrirDirectorio()"
@@ -116,6 +126,21 @@
             style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:transparent; color:#718096; letter-spacing:0.5px;">
             📝 Facturas Guardadas
+        </button>
+        <button onclick="mostrarPanel('catalogo')" id="btn-tab-catalogo"
+            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+                   background:transparent; color:#718096; letter-spacing:0.5px;">
+            📦 Catálogo
+        </button>
+        <button onclick="mostrarPanel('notas')" id="btn-tab-notas"
+            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+                   background:transparent; color:#718096; letter-spacing:0.5px;">
+            ↩ Notas
+        </button>
+        <button onclick="mostrarPanel('empresa')" id="btn-tab-empresa"
+            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+                   background:transparent; color:#718096; letter-spacing:0.5px;">
+            🏢 Empresa
         </button>
     </div>
 
@@ -148,11 +173,12 @@
                         <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Nro. Autorización</th>
                         <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Observación</th>
                         <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Estado</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;"></th>
                     </tr>
                 </thead>
                 <tbody id="tbody-facturas">
                     <tr>
-                        <td colspan="8" style="padding:30px; text-align:center; color:#4a5568;">
+                        <td colspan="9" style="padding:30px; text-align:center; color:#4a5568;">
                             No hay facturas autorizadas aún
                         </td>
                     </tr>
@@ -160,6 +186,16 @@
             </table>
         </div>
     </div>
+    </div>
+
+    <div id="panel-catalogo" style="display:none;"></div>
+
+    <div id="panel-notas" style="display:none;"></div>
+    <div id="panel-empresa" style="display:none;">
+        <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:20px">
+            <div style="font-size:13px;font-weight:700;color:#94a3b8;letter-spacing:2px;margin-bottom:14px">MI EMPRESA</div>
+            <div id="empresa-certificado"></div>
+        </div>
     </div>
 
     <div id="panel-borradores" style="display:none;">
@@ -261,6 +297,19 @@
             <div id="lista-transferencias" style="display:none; margin-top:10px; max-height:200px; overflow-y:auto;
                  background:#0f1117; border:1px solid #2d3748; border-radius:8px;">
             </div>
+        </div>
+
+        <!-- Leer Excel de productos (opcional): Nombre, Precio, Iva (y Cantidad si la tiene).
+             Las filas pasan a ser las líneas de ESTA factura; el monto se calcula solo. -->
+        <div id="bloque-productos" style="margin-bottom:16px;">
+            <button type="button" data-leer tabindex="-1"
+                style="background:#7c3aed; color:#fff; border:none; border-radius:8px; padding:8px 14px;
+                       font-size:12px; font-weight:700; cursor:pointer; width:100%;">
+                📦 Leer Excel de productos
+            </button>
+            <input type="file" data-archivo accept=".xlsx,.xls,.csv" style="display:none;">
+            <div data-lineas style="display:none; margin-top:10px; max-height:220px; overflow-y:auto;
+                 background:#0f1117; border:1px solid #2d3748; border-radius:8px;"></div>
         </div>
 
         <div class="form-grid-3">
@@ -370,6 +419,8 @@ const EMISOR = {
     codDoc:               '01',    // 01=Factura Electrónica
 };
 
+Emisor.enlazar(EMISOR);   // con sesión, el emisor es la empresa del usuario
+
 const usuarioActivo = 'facturador';
 
 // Ecuador = UTC-5 siempre (no usa horario de verano)
@@ -469,7 +520,7 @@ async function guardarFacturaSRI(datos) {
     // datos viene con las keys viejas (fechaEmision, numero, cliente, total, nroAut, fechaAut)
     // las mapeamos a las columnas de facturas_historial
     try {
-        await fetch(CFB_SERVER_URL + '/facturas-historial', {
+        await Api.fetch('/facturas-historial', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -491,9 +542,9 @@ async function guardarFacturaSRI(datos) {
 
 async function cargarFacturasDesdeMySQL() {
     const tbody = document.getElementById('tbody-facturas');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="padding:30px;text-align:center;color:#4a5568;">Cargando desde MySQL…</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:#4a5568;">Cargando desde MySQL…</td></tr>`;
     try {
-        const resp = await fetch(CFB_SERVER_URL + '/facturas-historial');
+        const resp = await Api.fetch('/facturas-historial');
         const data = await resp.json();
         if (!data.ok) throw new Error(data.error || 'Error desconocido');
         // Normalizamos al formato que usa la tabla y el excel
@@ -509,7 +560,7 @@ async function cargarFacturasDesdeMySQL() {
         }));
         renderTablaFacturas();
     } catch(e) {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="padding:30px;text-align:center;color:#f87171;">Error al cargar desde MySQL: ${e.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:#f87171;">Error al cargar desde MySQL: ${e.message}</td></tr>`;
     }
 }
 
@@ -523,7 +574,7 @@ async function verificarEstadoFinal(numeroFactura, intento) {
 
     await new Promise(r => setTimeout(r, 6000));
     try {
-        const resp = await fetch(CFB_SERVER_URL + '/facturas-historial');
+        const resp = await Api.fetch('/facturas-historial');
         const data = await resp.json();
         if (!data.ok) return;
         const fila = data.facturas.find(f => f.numero_factura_sri === numeroFactura);
@@ -549,19 +600,17 @@ async function verificarEstadoFinal(numeroFactura, intento) {
 /* ══════════════════════════════
    PESTAÑAS Y BORRADORES
 ══════════════════════════════ */
+const PANELES = ['facturas', 'borradores', 'catalogo', 'notas', 'empresa'];
 function mostrarPanel(panel) {
-    const esFacturas = panel === 'facturas';
-    document.getElementById('panel-facturas').style.display   = esFacturas ? 'block' : 'none';
-    document.getElementById('panel-borradores').style.display = esFacturas ? 'none' : 'block';
-
-    const btnF = document.getElementById('btn-tab-facturas');
-    const btnB = document.getElementById('btn-tab-borradores');
-    btnF.style.background = esFacturas ? '#1a1f2e' : 'transparent';
-    btnF.style.color      = esFacturas ? '#f7c948' : '#718096';
-    btnB.style.background = esFacturas ? 'transparent' : '#1a1f2e';
-    btnB.style.color      = esFacturas ? '#718096' : '#f7c948';
-
-    if (!esFacturas) cargarBorradores();
+    PANELES.forEach(nombre => {
+        const activo = nombre === panel;
+        document.getElementById('panel-' + nombre).style.display = activo ? 'block' : 'none';
+        const btn = document.getElementById('btn-tab-' + nombre);
+        btn.style.background = activo ? '#1a1f2e' : 'transparent';
+        btn.style.color      = activo ? '#f7c948' : '#718096';
+    });
+    if (panel === 'borradores') cargarBorradores();
+    if (panel === 'notas') NotaCredito.recargar();
 }
 
 // Junta los datos del formulario en un solo objeto. La usan tanto el guardado
@@ -588,7 +637,7 @@ function recolectarDatosFormulario() {
 async function guardarBorradorActual() {
     try {
         const datos = recolectarDatosFormulario();
-        await fetch(CFB_SERVER_URL + '/facturas-borrador', {
+        await Api.fetch('/facturas-borrador', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(datos)
@@ -601,7 +650,7 @@ async function guardarBorradorActual() {
 // Borra el borrador una vez que la factura ya quedo autorizada de verdad.
 async function eliminarBorradorActual(secuencial) {
     try {
-        await fetch(CFB_SERVER_URL + '/facturas-borrador/' + secuencial + '?empresaId=facturador_sri', {
+        await Api.fetch('/facturas-borrador/' + secuencial + '?empresaId=facturador_sri', {
             method: 'DELETE'
         });
     } catch(e) {
@@ -648,7 +697,7 @@ async function cargarBorradores() {
     const tbody = document.getElementById('tbody-borradores');
     tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:#4a5568;">Cargando…</td></tr>`;
     try {
-        const resp = await fetch(CFB_SERVER_URL + '/facturas-borrador');
+        const resp = await Api.fetch('/facturas-borrador');
         const data = await resp.json();
         if (!data.ok) throw new Error(data.error || 'Error desconocido');
         _borradoresCache = data.borradores;
@@ -720,11 +769,18 @@ function badgeEstado(estadoSri) {
     return `<span title="${titulo.replace(/"/g,'&quot;')}" style="display:inline-block; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700; background:${info.bg}; color:${info.color}; white-space:nowrap;">${info.texto}</span>`;
 }
 
+// Solo las facturas AUTORIZADAS se pueden acreditar.
+function botonNotaCredito(f, i) {
+    const autorizada = /^AUTORIZADO/i.test((f.estadoSri || '').trim());
+    return autorizada ? `<button onclick="NotaCredito.abrir(facturasSRI[${i}])" title="Emitir nota de crédito"
+        style="background:transparent;border:1px solid #2d3748;color:#94a3b8;border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;">↩ NC</button>` : '';
+}
+
 function renderTablaFacturas() {
     const tbody = document.getElementById('tbody-facturas');
     if (!tbody) return;
     if (!facturasSRI.length) {
-        tbody.innerHTML = `<tr><td colspan="8" style="padding:30px;text-align:center;color:#4a5568;">No hay facturas autorizadas aún</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:#4a5568;">No hay facturas autorizadas aún</td></tr>`;
         return;
     }
     tbody.innerHTML = facturasSRI.map((f, i) => `
@@ -737,6 +793,7 @@ function renderTablaFacturas() {
             <td style="padding:10px 12px;color:#718096;font-family:monospace;font-size:10px;white-space:nowrap;" title="${f.nroAut||''}">${f.nroAut?f.nroAut.slice(0,24)+'...':'-'}</td>
             <td style="padding:10px 12px;color:#94a3b8;font-size:11px;white-space:nowrap;" title="${(f.observacion||'').replace(/"/g,'&quot;')}">${resumirObservacion(f.observacion)}</td>
             <td style="padding:10px 12px;white-space:nowrap;">${badgeEstado(f.estadoSri)}</td>
+            <td style="padding:10px 12px;white-space:nowrap;">${botonNotaCredito(f, i)}</td>
         </tr>
     `).join('');
 }
@@ -802,13 +859,6 @@ function normalizarBanco(str) {
     if (s.includes('BOL')) return 'Bolivariano';
     if (s.includes('INT')) return 'Internacional';
     return String(str).trim();
-}
-
-// Quita acentos y pasa a minuscula, para comparar encabezados sin
-// importar tildes/mayusculas (ej: "Fecha" = "fecha" = "FECHA").
-function normalizarEncabezado(s) {
-    return String(s || '').trim().toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 // Convierte el valor de una celda de fecha (puede venir como objeto Date,
@@ -1001,7 +1051,7 @@ async function abrirFacturaDirecta() {
 
     let seq = 1;
     try {
-        const seqResp = await fetch(CFB_SERVER_URL + '/arbitraje/secuencial');
+        const seqResp = await Api.fetch('/arbitraje/secuencial');
         const seqData = await seqResp.json();
         if (seqData.ok) seq = seqData.secuencial;
     } catch(e) {
@@ -1014,6 +1064,7 @@ async function abrirFacturaDirecta() {
     document.getElementById('xml-secuencial').value = seq;
     document.getElementById('xml-forma-pago').value = '20';
     document.getElementById('xml-ganancia').value = '';
+    LineasFactura.limpiar();
     document.getElementById('obs-importe').value  = '';
     document.getElementById('obs-fecha').value    = '';
     document.getElementById('obs-banco').value    = '';
@@ -1119,7 +1170,7 @@ async function enviarAlSRI() {
     const ganancia = parseFloat(document.getElementById('xml-ganancia')?.value) || 0;
 
     try {
-        const resp = await fetch(url + '/arbitraje/factura', {
+        const resp = await Api.fetch('/arbitraje/factura', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1129,11 +1180,12 @@ async function enviarAlSRI() {
                     fechaEmision: document.getElementById('xml-fecha-emision')?.value || hoyEcuador(),
                     cedula:      document.getElementById('xml-cedula').value,
                     nombre:      document.getElementById('xml-nombre').value,
-                    secuencial:  seq,
                     formaPago:   document.getElementById('xml-forma-pago')?.value || '20',
                     observacion: document.getElementById('xml-concepto').value,
-                    estab:  EMISOR.estab,
-                    ptoEmi: EMISOR.ptoEmi
+                    // Con productos de Excel el servidor decide el secuencial y arma el XML.
+                    ...(LineasFactura.hay()
+                        ? { lineas: LineasFactura.paraServidor() }
+                        : { secuencial: seq, estab: EMISOR.estab, ptoEmi: EMISOR.ptoEmi })
                 }
             }),
             signal: AbortSignal.timeout(120000)
@@ -1264,6 +1316,11 @@ function generarXML() {
     }
 
     const gananciaFact = parseFloat(document.getElementById('xml-ganancia')?.value) || 0;
+    if (gananciaFact <= 0) {
+        alert('⚠️ El monto a facturar tiene que ser mayor a cero. No se puede emitir una factura en $0.');
+        document.getElementById('xml-ganancia').focus();
+        return null;
+    }
     if (gananciaFact > 50 && cedula === '9999999999999') {
         alert('⚠️ La comisión supera U$D 50.\nEl SRI requiere cédula o RUC real del cliente.\nNo se puede emitir como Consumidor Final.');
         document.getElementById('xml-cedula').value = '';
@@ -1292,6 +1349,8 @@ function generarXML() {
     const dv = calcularDigitoVerificador(claveBase);
     const claveAcceso = `${claveBase}${dv}`;
 
+    if (LineasFactura.hay()) return { xml: LineasFactura.resumenTexto(), seq, claveAcceso, monto: montoNum.toFixed(2) };
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?><factura id="comprobante" version="1.1.0">
     <infoTributaria>
         <ambiente>${EMISOR.ambiente}</ambiente>
@@ -1305,7 +1364,7 @@ function generarXML() {
         <ptoEmi>${EMISOR.ptoEmi}</ptoEmi>
         <secuencial>${secStr}</secuencial>
         <dirMatriz>${escXML(EMISOR.dirMatriz)}</dirMatriz>
-        <contribuyenteRimpe>CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE</contribuyenteRimpe>
+        ${EMISOR.regimen === 'RIMPE_NEGOCIO_POPULAR' ? '<contribuyenteRimpe>CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE</contribuyenteRimpe>' : ''}
     </infoTributaria>
     <infoFactura>
         <fechaEmision>${fechaXML}</fechaEmision>
@@ -1426,8 +1485,31 @@ function generarYDescargarXML() {
     localStorage.setItem('cfb_seq_fact_v1',    String(seq + 1));
 }
 
-// Carga inicial desde MySQL
-cargarFacturasDesdeMySQL();
+// Sesión: EXIGIR_LOGIN pasa a true cuando el servidor ya exige token (Fase 3).
+const EXIGIR_LOGIN = false;
+Api.init(CFB_SERVER_URL);
+Catalogo.montarPanel(document.getElementById('panel-catalogo'));
+Certificado.montar(document.getElementById('empresa-certificado'));
+
+// Productos de Excel dentro del modal de factura: con líneas, el monto sale de ellas.
+LineasFactura.montar(document.getElementById('bloque-productos'), () => {
+    const inp = document.getElementById('xml-ganancia');
+    const hay = LineasFactura.hay();
+    inp.readOnly = hay;
+    if (hay) { inp.value = LineasFactura.total().toFixed(2); inp.dispatchEvent(new Event('input')); }
+});
+NotaCredito.montarPanel(document.getElementById('panel-notas'), { badge: badgeEstado });
+Sesion.iniciar({ exigir: EXIGIR_LOGIN });
+
+// Cada empresa ve SUS facturas: al entrar, salir o expirar la sesión se vuelve a cargar la tabla.
+['sesion-lista', 'sesion-cerrada', 'sesion-expirada'].forEach(ev => window.addEventListener(ev, () => {
+    if (EXIGIR_LOGIN && !Api.token()) { facturasSRI = []; renderTablaFacturas(); return; }
+    cargarFacturasDesdeMySQL();
+    if (document.getElementById('panel-borradores').style.display !== 'none') cargarBorradores();
+}));
+
+// Carga inicial desde MySQL (con login obligatorio, espera a que haya sesión)
+if (!EXIGIR_LOGIN || Api.token()) cargarFacturasDesdeMySQL();
 </script>
 </body>
 </html>
