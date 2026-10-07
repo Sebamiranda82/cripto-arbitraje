@@ -25,11 +25,9 @@
         .badge { background: #1a2744; border: 1px solid #2d4a8a; border-radius: 8px; padding: 6px 14px; font-size: 11px; color: #60a5fa; }
 
         /* ── Modal XML ── */
-        #modal-xml {
-            display: none; position: fixed; inset: 0; z-index: 9999;
-            background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
-        }
-        #modal-xml.open { display: flex; }
+        /* El formulario de factura vive en la pestaña "Nueva Factura" (ya no es ventana flotante). */
+        #modal-xml { display: block; }
+        #modal-xml .modal-box { width: 100%; max-width: none; max-height: none; overflow: visible; }
         .modal-box {
             background: #1a1f2e; border: 1px solid #2d3748; border-radius: 16px;
             padding: 28px; width: 95%; max-width: 560px; max-height: 90vh; overflow-y: auto;
@@ -74,7 +72,6 @@
         /* En pantallas anchas (PC) se agrupan en 2 o 3 columnas por fila,
            para no tener que bajar tanto con scroll. */
         @media (min-width: 640px) {
-            .modal-box { max-width: 720px; }
             .form-grid-2 { grid-template-columns: 1fr 1fr; }
             .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
         }
@@ -118,10 +115,15 @@
 
     <!-- TABS -->
     <div style="display:flex; gap:4px; margin-bottom:16px; background:#0f1117; border-radius:10px; padding:4px;">
-        <button onclick="mostrarPanel('facturas')" id="btn-tab-facturas"
+        <button onclick="mostrarPanel('nueva')" id="btn-tab-nueva"
             style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:#1a1f2e; color:#f7c948; letter-spacing:0.5px;">
-            📄 Facturas
+            ✚ Nueva Factura
+        </button>
+        <button onclick="mostrarPanel('facturas')" id="btn-tab-facturas"
+            style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
+                   background:transparent; color:#718096; letter-spacing:0.5px;">
+            📄 Listado de Facturas
         </button>
         <button onclick="mostrarPanel('borradores')" id="btn-tab-borradores"
             style="flex:1; padding:10px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
@@ -145,87 +147,9 @@
         </button>
     </div>
 
-    <div id="panel-facturas">
-    <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
-            <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">FACTURAS SRI — FIRMADAS Y ENVIADAS</div>
-            <div style="display:flex; gap:8px;">
-                <button onclick="abrirFacturaDirecta()"
-                    style="background:#1d4ed8; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
-                    📄 Nueva Factura
-                </button>
-                <button onclick="exportarFacturasExcel()"
-                    style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
-                    ⬇ Exportar Excel
-                </button>
-            </div>
-        </div>
-
-        <!-- Tabla estilo Excel -->
-        <div style="overflow-x:auto;">
-            <table id="tabla-facturas" style="width:100%; border-collapse:collapse; font-size:12px;">
-                <thead>
-                    <tr style="background:#0f1117; color:#94a3b8; text-align:left;">
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">#</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Fecha Emisión</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Número</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Cliente</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap; text-align:right;">Total USD</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Nro. Autorización</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Observación</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Estado</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;"></th>
-                    </tr>
-                </thead>
-                <tbody id="tbody-facturas">
-                    <tr>
-                        <td colspan="9" style="padding:30px; text-align:center; color:#4a5568;">
-                            No hay facturas autorizadas aún
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-
-    <div id="panel-catalogo" style="display:none;"></div>
-
-    <div id="panel-notas" style="display:none;"></div>
-    <div id="panel-empresa" style="display:none;">
-        <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:20px">
-            <div style="font-size:13px;font-weight:700;color:#94a3b8;letter-spacing:2px;margin-bottom:14px">MI EMPRESA</div>
-            <div id="empresa-certificado"></div>
-        </div>
-    </div>
-
-    <div id="panel-borradores" style="display:none;">
-    <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
-        <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px; margin-bottom:6px;">FACTURAS GUARDADAS — SIN AUTORIZAR AÚN</div>
-        <div style="font-size:11px; color:#718096; margin-bottom:16px;">Se guardan automáticamente al generar el XML. Tocá una fila para continuarla.</div>
-        <div style="overflow-x:auto;">
-            <table id="tabla-borradores" style="width:100%; border-collapse:collapse; font-size:12px;">
-                <thead>
-                    <tr style="background:#0f1117; color:#94a3b8; text-align:left;">
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Secuencial</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Cliente</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap; text-align:right;">Monto</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Última edición</th>
-                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;"></th>
-                    </tr>
-                </thead>
-                <tbody id="tbody-borradores">
-                    <tr><td colspan="5" style="padding:30px; text-align:center; color:#4a5568;">No hay facturas guardadas</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-
-</div>
-
+    <div id="panel-nueva" style="display:none;">
 <!-- ══════════════════════════════════════════════
-     MODAL FACTURA ELECTRÓNICA SRI
+     PESTAÑA NUEVA FACTURA (formulario de factura electrónica SRI)
 ══════════════════════════════════════════════ -->
 <div id="modal-xml">
     <div class="modal-box">
@@ -376,6 +300,83 @@
         <div id="xml-preview-label" style="font-size:10px; color:#4a5568; margin-top:8px; display:none;">PREVIEW XML</div>
         <div class="xml-preview" id="xml-preview" style="display:none;"></div>
     </div>
+</div>
+
+    </div>
+
+    <div id="panel-facturas">
+    <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+            <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">FACTURAS SRI — FIRMADAS Y ENVIADAS</div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="exportarFacturasExcel()"
+                    style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
+                    ⬇ Exportar Excel
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabla estilo Excel -->
+        <div style="overflow-x:auto;">
+            <table id="tabla-facturas" style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                    <tr style="background:#0f1117; color:#94a3b8; text-align:left;">
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">#</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Fecha Emisión</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Número</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Cliente</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap; text-align:right;">Total USD</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Nro. Autorización</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Observación</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Estado</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-facturas">
+                    <tr>
+                        <td colspan="9" style="padding:30px; text-align:center; color:#4a5568;">
+                            No hay facturas autorizadas aún
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <div id="panel-catalogo" style="display:none;"></div>
+
+    <div id="panel-notas" style="display:none;"></div>
+    <div id="panel-empresa" style="display:none;">
+        <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:20px">
+            <div style="font-size:13px;font-weight:700;color:#94a3b8;letter-spacing:2px;margin-bottom:14px">MI EMPRESA</div>
+            <div id="empresa-certificado"></div>
+        </div>
+    </div>
+
+    <div id="panel-borradores" style="display:none;">
+    <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
+        <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px; margin-bottom:6px;">FACTURAS GUARDADAS — SIN AUTORIZAR AÚN</div>
+        <div style="font-size:11px; color:#718096; margin-bottom:16px;">Se guardan automáticamente al generar el XML. Tocá una fila para continuarla.</div>
+        <div style="overflow-x:auto;">
+            <table id="tabla-borradores" style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                    <tr style="background:#0f1117; color:#94a3b8; text-align:left;">
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Secuencial</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Cliente</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap; text-align:right;">Monto</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Última edición</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-borradores">
+                    <tr><td colspan="5" style="padding:30px; text-align:center; color:#4a5568;">No hay facturas guardadas</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
 </div>
 
 <!-- ══════════════════════════════════════════════
@@ -610,7 +611,7 @@ async function verificarEstadoFinal(numeroFactura, intento) {
 /* ══════════════════════════════
    PESTAÑAS Y BORRADORES
 ══════════════════════════════ */
-const PANELES = ['facturas', 'borradores', 'catalogo', 'notas', 'empresa'];
+const PANELES = ['nueva', 'facturas', 'borradores', 'catalogo', 'notas', 'empresa'];
 function mostrarPanel(panel) {
     PANELES.forEach(nombre => {
         const activo = nombre === panel;
@@ -619,6 +620,7 @@ function mostrarPanel(panel) {
         btn.style.background = activo ? '#1a1f2e' : 'transparent';
         btn.style.color      = activo ? '#f7c948' : '#718096';
     });
+    if (panel === 'nueva' && !opXML) abrirFacturaDirecta(); // sin factura en curso: arma una nueva
     if (panel === 'borradores') cargarBorradores();
     if (panel === 'notas') NotaCredito.recargar();
 }
@@ -746,7 +748,7 @@ async function precargarBorrador(secuencial) {
     if (b.fecha_emision && document.getElementById('xml-fecha-emision')) {
         document.getElementById('xml-fecha-emision').value = b.fecha_emision;
     }
-    mostrarPanel('facturas');
+    mostrarPanel('nueva');
 }
 
 function resumirObservacion(obs) {
@@ -1070,7 +1072,6 @@ async function abrirFacturaDirecta() {
         seq = parseInt(localStorage.getItem('cfb_seq_fact_v1') || localStorage.getItem('arbitraje_seq_fact') || '1');
     }
 
-    document.getElementById('modal-xml').style.display = 'flex';
     document.getElementById('xml-cedula').value  = '9999999999999';
     document.getElementById('xml-nombre').value  = 'CONSUMIDOR FINAL';
     document.getElementById('xml-secuencial').value = seq;
@@ -1108,7 +1109,7 @@ async function abrirFacturaDirecta() {
     document.getElementById('obs-fecha').oninput   = actualizarObservacion;
     document.getElementById('obs-banco').onchange  = actualizarObservacion;
 
-    document.getElementById('modal-xml').classList.add('open');
+    mostrarPanel('nueva');
     setTimeout(() => document.getElementById('xml-ganancia').focus(), 200);
 }
 
@@ -1294,15 +1295,11 @@ function toggleXmlPreview() {
     btn.textContent = visible ? '👁 Ver XML generado' : '🙈 Ocultar XML';
 }
 
+// Cancelar: descarta la factura en curso y vuelve al listado.
 function cerrarModal() {
-    document.getElementById('modal-xml').classList.remove('open');
-    document.getElementById('modal-xml').style.display = 'none';
     opXML = null;
+    mostrarPanel('facturas');
 }
-
-document.getElementById('modal-xml').addEventListener('click', function(e) {
-    if (e.target === this) cerrarModal();
-});
 
 /* ══════════════════════════════
    GENERADOR XML — FACTURA ELECTRÓNICA SRI ECUADOR
@@ -1513,10 +1510,13 @@ LineasFactura.montar(document.getElementById('bloque-productos'), () => {
 Comision.montar({ importe: document.getElementById('obs-importe'), pct: document.getElementById('xml-pct'), monto: document.getElementById('xml-ganancia') });
 NotaCredito.montarPanel(document.getElementById('panel-notas'), { badge: badgeEstado });
 Sesion.iniciar({ exigir: EXIGIR_LOGIN });
+mostrarPanel('nueva');
 
 // Cada empresa ve SUS facturas: al entrar, salir o expirar la sesión se vuelve a cargar la tabla.
 ['sesion-lista', 'sesion-cerrada', 'sesion-expirada'].forEach(ev => window.addEventListener(ev, () => {
     if (EXIGIR_LOGIN && !Api.token()) { facturasSRI = []; renderTablaFacturas(); return; }
+    opXML = null;                                   // el número y el emisor dependen de la sesión
+    if (document.getElementById('panel-nueva').style.display !== 'none') abrirFacturaDirecta();
     cargarFacturasDesdeMySQL();
     if (document.getElementById('panel-borradores').style.display !== 'none') cargarBorradores();
 }));
