@@ -19,3 +19,10 @@
 - No desplegar mientras se hace un lote grande de facturas: la cola de autorización vive en memoria y un deploy deja facturas en Pendiente. Mejora pendiente: re-encolar las pendientes al arrancar.
 - Punto de restauración: tag respaldo-pre-migracion-cfb en el repo srifactu.
 - Sin definir: server_compras, server_proveedores, server_registro_cliente, server_demo_leads, server_demo_seguimiento.
+
+## Catálogo de productos por Excel (decisión 06/10)
+- Otras personas cargan un Excel con columnas Nombre, Precio, Iva; al facturar, el nombre autocompleta precio e IVA.
+- Implica portar al servidor la factura con varios ítems e IVA (hoy /arbitraje/factura es una sola línea al 0%).
+- Revisar primero db_productos.js de CFB y reutilizarlo; catálogo en MySQL por empresa, no en localStorage.
+- Verificar los códigos codigoPorcentaje del IVA contra la ficha técnica oficial del SRI antes de portar (CFB usa 10 para 15% y 8 para 5%, y su inventario marca un bug).
+- Pendiente: formato de la columna Iva, y si el Precio incluye IVA.
