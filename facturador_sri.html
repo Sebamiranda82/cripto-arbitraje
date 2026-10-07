@@ -12,6 +12,7 @@
     <script src="sesion_ui.js"></script>
     <script src="catalogo_cliente.js"></script>
     <script src="lineas_factura_cliente.js"></script>
+    <script src="comision_cliente.js"></script>
     <script src="emisor_cliente.js"></script>
     <script src="certificado_cliente.js"></script>
     <script src="nota_credito_cliente.js"></script>
@@ -273,10 +274,19 @@
 
         <!-- COMISIÓN A FACTURAR -->
         <div style="background:#0a1a0a; border:1px solid #166534; border-radius:10px; padding:12px; margin-bottom:16px;">
-            <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block; color:#4ade80;">✅ MONTO A FACTURAR (USD)</label>
-            <input class="modal-input" id="xml-ganancia" type="number" step="0.01" min="0"
-                placeholder="Ej: 4.50"
-                style="font-size:14px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534;">
+            <div style="display:flex; gap:10px; align-items:flex-end;">
+                <div style="flex:1; min-width:0;">
+                    <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block; color:#4ade80;">✅ MONTO A FACTURAR (USD)</label>
+                    <input class="modal-input" id="xml-ganancia" type="number" step="0.01" min="0"
+                        placeholder="Ej: 4.50"
+                        style="font-size:14px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534;">
+                </div>
+                <div style="width:84px;">
+                    <label class="label-sm" style="font-size:12px; margin-bottom:6px; display:block; color:#4ade80;">% COMISIÓN</label>
+                    <input class="modal-input" id="xml-pct" type="number" step="0.01" min="0" inputmode="decimal"
+                        style="font-size:14px; font-weight:700; color:#4ade80; background:#0f1117; border:1px solid #166534;">
+                </div>
+            </div>
         </div>
 
         <!-- Leer Excel de transferencias (opcional): se elige el archivo UNA
@@ -760,6 +770,7 @@ function badgeEstado(estadoSri) {
     const mapa = {
         'AUTORIZADO':          { texto: 'Autorizado',  bg: 'rgba(16,185,129,0.15)', color: '#4ade80' },
         'RECIBIDA_PENDIENTE':  { texto: 'Pendiente',    bg: 'rgba(96,165,250,0.15)', color: '#60a5fa' },
+        'PENDIENTE_ENVIO':     { texto: 'Por enviar',   bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
         'DEVUELTA':            { texto: 'Devuelta',     bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
         'RECHAZADO_SRI':       { texto: 'Rechazada',    bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
         'NO_AUTORIZADO':       { texto: 'No autorizada',bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
@@ -963,6 +974,7 @@ function seleccionarTransferencia(idx) {
     if (t.banco)   document.getElementById('obs-banco').value   = t.banco;
 
     actualizarObservacion();
+    Comision.recalcular();   // el importe de la transferencia precarga el monto con el %
     div.style.display = 'none';
     document.getElementById('btn-leer-excel').textContent = '👁 Ver transferencias';
 }
@@ -1064,6 +1076,7 @@ async function abrirFacturaDirecta() {
     document.getElementById('xml-secuencial').value = seq;
     document.getElementById('xml-forma-pago').value = '20';
     document.getElementById('xml-ganancia').value = '';
+    Comision.reiniciar();
     LineasFactura.limpiar();
     document.getElementById('obs-importe').value  = '';
     document.getElementById('obs-fecha').value    = '';
@@ -1094,10 +1107,6 @@ async function abrirFacturaDirecta() {
     document.getElementById('obs-importe').oninput = actualizarObservacion;
     document.getElementById('obs-fecha').oninput   = actualizarObservacion;
     document.getElementById('obs-banco').onchange  = actualizarObservacion;
-    document.getElementById('xml-ganancia').oninput = function() {
-        document.getElementById('obs-importe').value = this.value;
-        actualizarObservacion();
-    };
 
     document.getElementById('modal-xml').classList.add('open');
     setTimeout(() => document.getElementById('xml-ganancia').focus(), 200);
@@ -1209,7 +1218,9 @@ async function enviarAlSRI() {
             // Recibida por el SRI, autorizacion verificandose en segundo
             // plano (en la cola del servidor). No es un error: es un
             // trabajo en curso. Guardamos el numero y seguimos trabajando.
-            setSriStatus(`ℹ️ Enviada al SRI · Nro: ${numeroReal} · Verificando autorización, podés seguir facturando.`, 'loading');
+            setSriStatus(data.pendienteEnvio
+                ? `ℹ️ Factura ${numeroReal} guardada con su número. El SRI no respondió: el sistema la envía solo, podés seguir facturando.`
+                : `ℹ️ Enviada al SRI · Nro: ${numeroReal} · Verificando autorización, podés seguir facturando.`, 'loading');
 
             eliminarBorradorActual(seq);
             if (seqReal !== seq) eliminarBorradorActual(seqReal);
@@ -1496,8 +1507,10 @@ LineasFactura.montar(document.getElementById('bloque-productos'), () => {
     const inp = document.getElementById('xml-ganancia');
     const hay = LineasFactura.hay();
     inp.readOnly = hay;
+    Comision.bloquear(hay);
     if (hay) { inp.value = LineasFactura.total().toFixed(2); inp.dispatchEvent(new Event('input')); }
 });
+Comision.montar({ importe: document.getElementById('obs-importe'), pct: document.getElementById('xml-pct'), monto: document.getElementById('xml-ganancia') });
 NotaCredito.montarPanel(document.getElementById('panel-notas'), { badge: badgeEstado });
 Sesion.iniciar({ exigir: EXIGIR_LOGIN });
 
