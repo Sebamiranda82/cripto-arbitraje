@@ -19,6 +19,11 @@
     <script src="certificado_cliente.js"></script>
     <script src="datos_empresa_cliente.js"></script>
     <script src="logo_empresa_cliente.js"></script>
+    <script src="comprobante_datos_cliente.js"></script>
+    <script src="comprobante_pdf_cliente.js"></script>
+    <script src="comprobante_ticket_cliente.js"></script>
+    <script src="impresion_cliente.js"></script>
+    <script src="comprobante_ui_cliente.js"></script>
     <script src="nota_credito_cliente.js"></script>
     <style>
         body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', 'Segoe UI', sans-serif; margin: 0; }
@@ -299,6 +304,11 @@
         <div id="sri-status" style="display:none; border-radius:8px; padding:10px 14px; font-size:12px; font-weight:600; margin-bottom:10px;"></div>
 
         <!-- Ver factura en el SRI oficial -->
+        <button id="btn-imprimir-factura" onclick="Comprobante.imprimir(window._ultimaFacturaNumero)" style="display:none; width:100%; margin-bottom:12px;
+            background:#1d4ed8; color:#fff; border:none; border-radius:8px; padding:10px; font-size:13px; font-weight:700; cursor:pointer;">
+            🖨 Imprimir factura (PDF / ticket)
+        </button>
+
         <button id="btn-ver-factura" onclick="abrirFacturaEnSRI()" style="display:none; width:100%; margin-bottom:12px;
             background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:10px; font-size:13px; font-weight:700; cursor:pointer;">
             📄 Ver Factura en el SRI
@@ -803,6 +813,11 @@ function badgeEstado(estadoSri) {
 }
 
 // Solo las facturas AUTORIZADAS se pueden acreditar.
+function botonImprimir(f) {
+    return /^\d{3}-\d{3}-\d{9}$/.test(f.numero || '') ? `<button onclick="Comprobante.imprimir('${f.numero}')" title="Imprimir factura (PDF / ticket)"
+        style="background:transparent;border:1px solid #2d3748;color:#94a3b8;border-radius:6px;padding:6px 10px;font-size:15px;cursor:pointer;margin-right:8px;">🖨</button>` : '';
+}
+
 function botonNotaCredito(f, i) {
     const autorizada = /^AUTORIZADO/i.test((f.estadoSri || '').trim());
     return autorizada ? `<button onclick="NotaCredito.abrir(facturasSRI[${i}])" title="Emitir nota de crédito"
@@ -820,7 +835,7 @@ function renderTablaFacturas() {
         <tr style="border-bottom:1px solid #1a1f2e;${i%2===0?'background:#0f1117':''};">
             <td style="padding:10px 12px;color:#718096;">${facturasSRI.length-i}</td>
             <td style="padding:10px 12px;color:#e2e8f0;white-space:nowrap;">${f.fechaEmision||'-'}</td>
-            <td style="padding:10px 12px;color:#60a5fa;white-space:nowrap;font-family:monospace;">${f.numero||'-'}</td>
+            <td style="padding:10px 12px;color:#60a5fa;white-space:nowrap;font-family:monospace;">${botonImprimir(f)}${f.numero||'-'}</td>
             <td style="padding:10px 12px;color:#94a3b8;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.cliente||'CONSUMIDOR FINAL'}</td>
             <td style="padding:10px 12px;color:#4ade80;text-align:right;font-weight:700;">$${parseFloat(f.total||0).toFixed(2)}</td>
             <td style="padding:10px 12px;color:#718096;font-family:monospace;font-size:10px;white-space:nowrap;" title="${f.nroAut||''}">${f.nroAut?f.nroAut.slice(0,24)+'...':'-'}</td>
@@ -1043,6 +1058,7 @@ function nuevaFactura() {
     document.getElementById('xml-fecha-emision') && (document.getElementById('xml-fecha-emision').value = hoyEcuador());
     document.getElementById('sri-status').style.display      = 'none';
     document.getElementById('btn-ver-factura').style.display  = 'none';
+    document.getElementById('btn-imprimir-factura').style.display = 'none';
     document.getElementById('btn-enviar-sri').style.display   = 'none';
     document.getElementById('xml-preview').style.display      = 'none';
     document.getElementById('xml-preview-label').style.display = 'none';
@@ -1111,6 +1127,7 @@ async function abrirFacturaDirecta() {
     sincronizarBotonExcel();
     document.getElementById('sri-status').style.display      = 'none';
     document.getElementById('btn-ver-factura').style.display = 'none';
+    document.getElementById('btn-imprimir-factura').style.display = 'none';
     document.getElementById('btn-enviar-sri').style.display  = 'none';
     document.getElementById('xml-preview').style.display     = 'none';
     document.getElementById('xml-preview-label').style.display = 'none';
@@ -1274,6 +1291,8 @@ async function enviarAlSRI() {
                 formaPago: document.getElementById('xml-forma-pago').options[document.getElementById('xml-forma-pago').selectedIndex].text
             };
             document.getElementById('btn-ver-factura').style.display = 'inline-block';
+            window._ultimaFacturaNumero = numeroReal;
+            document.getElementById('btn-imprimir-factura').style.display = 'block';
 
             const fechaEmisionInput = document.getElementById('xml-fecha-emision')?.value;
             let fechaEmisionFmt = fechaEmisionInput
@@ -1524,6 +1543,7 @@ Api.init(CFB_SERVER_URL);
 Catalogo.montarPanel(document.getElementById('panel-catalogo'));
 DatosEmpresa.montar(document.getElementById('empresa-datos'));
 LogoEmpresa.montar(document.getElementById('empresa-logo'));
+Comprobante.configurar({ emisor: () => EMISOR });
 Certificado.montar(document.getElementById('empresa-certificado'));
 
 // Productos de Excel dentro del modal de factura: con líneas, el monto sale de ellas.
