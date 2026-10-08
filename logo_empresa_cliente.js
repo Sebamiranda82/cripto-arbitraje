@@ -53,6 +53,8 @@ const LogoEmpresa = (() => {
         el.appendChild(img);
     }
 
+    let actual = null;      // último logo conocido (data URL) o null; lo usa quien imprime la factura
+
     function montar(cont) {
         cont.innerHTML = `
         <div data-vista style="display:flex;align-items:center;justify-content:center;min-height:90px;background:#0f1117;border:1px dashed #2d3748;border-radius:8px;padding:10px;margin-bottom:10px">
@@ -68,6 +70,7 @@ const LogoEmpresa = (() => {
         const estado = (msg, tipo) => { const e = $('[data-estado]'); e.style.color = COLORES[tipo] || '#94a3b8'; e.textContent = msg; };
 
         function mostrar(logo) {
+            actual = logo || null;
             const vista = $('[data-vista]');
             vista.querySelectorAll('img').forEach(i => i.remove());
             $('[data-vacio]').style.display = logo ? 'none' : '';
@@ -107,6 +110,6 @@ const LogoEmpresa = (() => {
         return { cargar, mostrar };
     }
 
-    return { montar, tamanoReducido, reducir, pintarEncabezado };
+    return { montar, tamanoReducido, reducir, pintarEncabezado, actual: () => actual };
 })();
 if (typeof module !== 'undefined') module.exports = LogoEmpresa;
