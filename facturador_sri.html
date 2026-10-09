@@ -8,6 +8,8 @@
     <script src="iva_calculo.js"></script>
     <script src="excel_utils.js"></script>
     <script src="api_cliente.js"></script>
+    <script src="almacen_local_cliente.js"></script>
+    <script src="transferencias_guardadas_cliente.js"></script>
     <script src="ui_modal.js"></script>
     <script src="sesion_ui.js"></script>
     <script src="catalogo_cliente.js"></script>
@@ -239,8 +241,9 @@
                 📊 Leer Excel de transferencias
             </button>
             <div id="excel-cargado-info" style="display:none; margin-top:6px; font-size:11px; color:#4a5568; text-align:center;">
-                Excel cargado: <span id="excel-nombre-archivo"></span> ·
-                <a href="#" onclick="document.getElementById('excel-transferencias').click(); return false;" style="color:#60a5fa;">cambiar archivo</a>
+                Excel cargado: <span id="excel-nombre-archivo"></span> <span id="excel-guardado-fecha"></span> ·
+                <a href="#" onclick="document.getElementById('excel-transferencias').click(); return false;" style="color:#60a5fa;">cambiar archivo</a> ·
+                <a href="#" onclick="quitarExcelTransferencias(); return false;" style="color:#f87171;">quitar</a>
             </div>
             <input type="file" id="excel-transferencias" accept=".xlsx,.xls,.csv" style="display:none;"
                 onchange="leerExcelTransferencias(event)">
@@ -717,6 +720,37 @@ function sincronizarBotonExcel() {
         _transferenciasCache.length ? '👁 Ver transferencias' : '📊 Leer Excel de transferencias';
 }
 
+// Muestra "Excel cargado: nombre · guardado dd/mm hh:mm" (sin fecha si no se pudo guardar en el navegador).
+function mostrarInfoExcel(nombre, guardadoEn) {
+    document.getElementById('excel-cargado-info').style.display = 'block';
+    document.getElementById('excel-nombre-archivo').textContent = nombre || '';
+    const f = guardadoEn ? new Date(guardadoEn) : null;
+    document.getElementById('excel-guardado-fecha').textContent = f && !isNaN(f)
+        ? '(guardado ' + f.toLocaleString('es-EC', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ')' : '';
+}
+
+// Recupera el Excel guardado de esta empresa (al abrir la pantalla, al volver a ella o al iniciar sesión).
+function restaurarTransferencias() {
+    const g = TransferenciasGuardadas.leer();
+    if (!g) return;
+    _transferenciasCache = g.lista;
+    mostrarInfoExcel(g.nombre, g.guardadoEn);
+    sincronizarBotonExcel();
+}
+
+// Al salir de la sesión solo se limpia la pantalla: lo guardado sigue ahí, solo para su empresa.
+function limpiarPantallaTransferencias() {
+    _transferenciasCache = [];
+    document.getElementById('excel-cargado-info').style.display = 'none';
+    sincronizarBotonExcel();
+}
+
+// "quitar": borra el Excel guardado (para cambiarlo por otro o por privacidad).
+function quitarExcelTransferencias() {
+    TransferenciasGuardadas.borrar();
+    limpiarPantallaTransferencias();
+}
+
 function manejarBotonExcel() {
     if (!_transferenciasCache.length) {
         // Primera vez: pedimos el archivo.
@@ -968,8 +1002,10 @@ function leerExcelTransferencias(event) {
         }
 
         _transferenciasCache = transferencias;
-        document.getElementById('excel-cargado-info').style.display = 'block';
-        document.getElementById('excel-nombre-archivo').textContent = file.name;
+        // Queda guardado en este navegador: no hay que volver a cargarlo al salir de la pantalla y regresar.
+        const guardado = TransferenciasGuardadas.guardar(file.name, transferencias);
+        mostrarInfoExcel(file.name, guardado ? new Date().toISOString() : null);
+        if (!guardado && transferencias.length) alert('⚠️ El Excel se cargó, pero este navegador no permitió guardarlo: tendrás que cargarlo otra vez si recargás la página.');
         document.getElementById('btn-leer-excel').textContent = '🙈 Ocultar transferencias';
         mostrarListaTransferencias(transferencias);
     };
@@ -1560,6 +1596,7 @@ Comision.montar({ importe: document.getElementById('obs-importe'), pct: document
 NotaCredito.montarPanel(document.getElementById('panel-notas'), { badge: badgeEstado });
 Sesion.iniciar({ exigir: EXIGIR_LOGIN });
 mostrarPanel('nueva');
+restaurarTransferencias();   // el Excel de transferencias guardado en este navegador vuelve solo
 
 // Cada empresa ve SUS facturas: al entrar, salir o expirar la sesión se vuelve a cargar la tabla.
 ['sesion-lista', 'sesion-cerrada', 'sesion-expirada'].forEach(ev => window.addEventListener(ev, () => {
@@ -1569,6 +1606,10 @@ mostrarPanel('nueva');
     cargarFacturasDesdeMySQL();
     if (document.getElementById('panel-borradores').style.display !== 'none') cargarBorradores();
 }));
+
+// El Excel guardado es de cada empresa: al iniciar sesión vuelve el de esa empresa; al salir se limpia la pantalla.
+window.addEventListener('sesion-lista', restaurarTransferencias);
+['sesion-cerrada', 'sesion-expirada'].forEach(ev => window.addEventListener(ev, limpiarPantallaTransferencias));
 
 // Carga inicial desde MySQL (con login obligatorio, espera a que haya sesión)
 if (!EXIGIR_LOGIN || Api.token()) cargarFacturasDesdeMySQL();
