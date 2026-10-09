@@ -1,14 +1,19 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="estilo-vb6">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Facturador SRI - MIRANDA ANDRES SEBASTIAN</title>
+    <!-- Archivos COMPARTIDOS por todas las aplicaciones (facturador, CFB, herrajes): viven en una sola carpeta del servidor. -->
+    <link rel="stylesheet" href="https://srifactu-production.up.railway.app/compartido/temas_paleta.css">
+    <link rel="stylesheet" href="https://srifactu-production.up.railway.app/compartido/temas_vb6.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="iva_calculo.js"></script>
     <script src="excel_utils.js"></script>
     <script src="api_cliente.js"></script>
-    <script src="almacen_local_cliente.js"></script>
+    <script src="https://srifactu-production.up.railway.app/compartido/almacen_local_cliente.js"></script>
+    <script src="https://srifactu-production.up.railway.app/compartido/temas_motor_cliente.js"></script>
+    <script src="temas_facturador_cliente.js"></script>
     <script src="transferencias_guardadas_cliente.js"></script>
     <script src="ui_modal.js"></script>
     <script src="sesion_ui.js"></script>
@@ -114,7 +119,8 @@
                 <div style="font-size:19px; font-weight:700; color:#f7c948; letter-spacing:-0.5px;">FACTURADOR SRI</div>
                 <div id="emisor-titulo" style="font-size:10px; color:#4a5568; letter-spacing:1px;">MIRANDA ANDRES SEBASTIAN · RIMPE NEGOCIO POPULAR</div>
             </div>
-            <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+            <div style="margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:0;">
+                <span id="tema-selector" style="font-size:11px; color:#94a3b8;"></span>
                 <button onclick="abrirDirectorio()"
                     style="background:none; border:1px solid #2d3748; color:#718096; border-radius:6px; padding:6px 12px; font-size:11px; cursor:pointer;">
                     📋 Directorio
@@ -651,6 +657,7 @@ function mostrarPanel(panel) {
         const btn = document.getElementById('btn-tab-' + nombre);
         btn.style.background = activo ? '#1a1f2e' : 'transparent';
         btn.style.color      = activo ? '#f7c948' : '#718096';
+        btn.classList.toggle('activa', activo);   // el tema dibuja la pestaña activa "hundida"
         if (activo && btn.scrollIntoView) btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
     if (panel === 'nueva' && !opXML) abrirFacturaDirecta(); // sin factura en curso: arma una nueva
@@ -1597,6 +1604,7 @@ NotaCredito.montarPanel(document.getElementById('panel-notas'), { badge: badgeEs
 Sesion.iniciar({ exigir: EXIGIR_LOGIN });
 mostrarPanel('nueva');
 restaurarTransferencias();   // el Excel de transferencias guardado en este navegador vuelve solo
+Temas.montarSelector('#tema-selector');   // selector "🌙 Oscuro | ☀️ Claro", igual que CFB
 
 // Cada empresa ve SUS facturas: al entrar, salir o expirar la sesión se vuelve a cargar la tabla.
 ['sesion-lista', 'sesion-cerrada', 'sesion-expirada'].forEach(ev => window.addEventListener(ev, () => {
