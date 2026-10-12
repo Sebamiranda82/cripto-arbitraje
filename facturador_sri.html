@@ -1581,7 +1581,7 @@ function generarYDescargarXML() {
 }
 
 // Sesión: EXIGIR_LOGIN pasa a true cuando el servidor ya exige token (Fase 3).
-const EXIGIR_LOGIN = false;
+const EXIGIR_LOGIN = true;
 Api.init(CFB_SERVER_URL);
 Catalogo.montarPanel(document.getElementById('panel-catalogo'));
 DatosEmpresa.montar(document.getElementById('empresa-datos'));
