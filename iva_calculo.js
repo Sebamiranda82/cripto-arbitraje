@@ -14,15 +14,20 @@
     const IVA_PERMITIDOS = [0, 5, 15];
     const redondear2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
 
-    function desglosar(precio, ivaPct, incluyeIva, cantidad) {
+    // descuento (opcional): valor en dinero, en las mismas unidades que `precio` (con IVA si incluyeIva), 0 ≤ descuento ≤ precio×cantidad.
+    // El IVA se calcula sobre la base DESPUÉS del descuento. `descuento` devuelto = lo descontado de la base (sin IVA).
+    function desglosar(precio, ivaPct, incluyeIva, cantidad, descuento) {
         const cant = cantidad === undefined ? 1 : cantidad;
+        const desc = descuento === undefined || descuento === null ? 0 : descuento;
         if (!Number.isFinite(precio) || precio < 0) throw new Error('Precio inválido');
         if (!Number.isFinite(cant) || cant <= 0) throw new Error('Cantidad inválida');
         if (!IVA_PERMITIDOS.includes(ivaPct)) throw new Error('IVA debe ser 0, 5 o 15');
         const bruto = precio * cant;
-        const base = redondear2(incluyeIva ? bruto / (1 + ivaPct / 100) : bruto);
+        if (!Number.isFinite(desc) || desc < 0 || desc > bruto + 1e-9) throw new Error('Descuento inválido');
+        const sobre = n => redondear2(incluyeIva ? n / (1 + ivaPct / 100) : n);
+        const baseSinDescuento = sobre(bruto), base = sobre(Math.max(bruto - desc, 0));
         const iva = redondear2(base * ivaPct / 100);
-        return { base, iva, total: redondear2(base + iva), ivaPct };
+        return { base, iva, total: redondear2(base + iva), ivaPct, descuento: redondear2(baseSinDescuento - base), baseSinDescuento };
     }
 
     const api = { IVA_PERMITIDOS, redondear2, desglosar };
