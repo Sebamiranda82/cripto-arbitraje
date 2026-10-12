@@ -32,6 +32,7 @@
     <script src="impresion_cliente.js"></script>
     <script src="comprobante_ui_cliente.js"></script>
     <script src="nota_credito_cliente.js"></script>
+    <script src="listado_documentos_cliente.js"></script>
     <style>
         body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', 'Segoe UI', sans-serif; margin: 0; }
         input[type=number]::-webkit-inner-spin-button,
@@ -142,7 +143,7 @@
         <button onclick="mostrarPanel('facturas')" id="btn-tab-facturas"
             style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:transparent; color:#718096; letter-spacing:0.5px;">
-            📄 Listado de Facturas
+            📄 Listado de Documentos
         </button>
         <button onclick="mostrarPanel('borradores')" id="btn-tab-borradores"
             style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
@@ -337,17 +338,20 @@
     <div id="panel-facturas">
     <div style="background:#1a1f2e; border:1px solid #2d3748; border-radius:16px; padding:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
-            <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">FACTURAS SRI — FIRMADAS Y ENVIADAS</div>
+            <div style="font-size:13px; font-weight:700; color:#94a3b8; letter-spacing:2px;">DOCUMENTOS SRI — FIRMADOS Y ENVIADOS</div>
             <div style="display:flex; gap:8px;">
-                <button onclick="exportarFacturasExcel()"
+                <button onclick="ListadoDocumentos.exportar()"
                     style="background:#166534; color:#4ade80; border:1px solid #16a34a; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer;">
                     ⬇ Exportar Excel
                 </button>
             </div>
         </div>
 
-        <!-- Tabla estilo Excel -->
-        <div style="overflow-x:auto;">
+        <!-- Filtros: tipo de documento y rango de fechas (los dibuja listado_documentos_cliente.js) -->
+        <div id="filtros-documentos"></div>
+
+        <!-- Tabla estilo Excel (facturas) -->
+        <div id="contenedor-tabla-facturas" style="overflow-x:auto;">
             <table id="tabla-facturas" style="width:100%; border-collapse:collapse; font-size:12px;">
                 <thead>
                     <tr style="background:#0f1117; color:#94a3b8; text-align:left;">
@@ -369,6 +373,24 @@
                         </td>
                     </tr>
                 </tbody>
+            </table>
+        </div>
+
+        <!-- Tabla común (notas de crédito, notas de débito, guías, retenciones y "todos") -->
+        <div id="contenedor-tabla-documentos" style="overflow-x:auto; display:none;">
+            <table id="tabla-documentos" style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                    <tr style="background:#0f1117; color:#94a3b8; text-align:left;">
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Fecha</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Tipo</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Número</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Cliente</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap; text-align:right;">Total USD</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Sustento</th>
+                        <th style="padding:10px 12px; border-bottom:1px solid #2d3748; white-space:nowrap;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-documentos"></tbody>
             </table>
         </div>
     </div>
@@ -608,6 +630,7 @@ async function cargarFacturasDesdeMySQL() {
             estadoSri:    f.estado_sri || ''
         }));
         renderTablaFacturas();
+        if (typeof ListadoDocumentos !== 'undefined') ListadoDocumentos.repintar();
     } catch(e) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:#f87171;">Error al cargar desde MySQL: ${e.message}</td></tr>`;
     }
@@ -661,6 +684,7 @@ function mostrarPanel(panel) {
         if (activo && btn.scrollIntoView) btn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
     if (panel === 'nueva' && !opXML) abrirFacturaDirecta(); // sin factura en curso: arma una nueva
+    if (panel === 'facturas') ListadoDocumentos.alAbrir();
     if (panel === 'borradores') cargarBorradores();
     if (panel === 'notas') NotaCredito.recargar();
 }
@@ -865,15 +889,20 @@ function botonNotaCredito(f, i) {
         style="background:transparent;border:1px solid #2d3748;color:#94a3b8;border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;">↩ NC</button>` : '';
 }
 
+// Facturas que pasan el rango de fechas del listado (conservan su posición real en facturasSRI: las usan los botones de cada fila).
+function facturasVisibles() {
+    return facturasSRI.map((f, i) => ({ f, i })).filter(x => typeof ListadoDocumentos === 'undefined' || ListadoDocumentos.pasaFecha(x.f.fechaEmision));
+}
 function renderTablaFacturas() {
     const tbody = document.getElementById('tbody-facturas');
     if (!tbody) return;
-    if (!facturasSRI.length) {
-        tbody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:#4a5568;">No hay facturas autorizadas aún</td></tr>`;
+    const visibles = facturasVisibles();
+    if (!visibles.length) {
+        tbody.innerHTML = `<tr><td colspan="9" style="padding:30px;text-align:center;color:#4a5568;">${facturasSRI.length ? 'No hay facturas en el rango de fechas elegido' : 'No hay facturas autorizadas aún'}</td></tr>`;
         return;
     }
-    tbody.innerHTML = facturasSRI.map((f, i) => `
-        <tr style="border-bottom:1px solid #1a1f2e;${i%2===0?'background:#0f1117':''};">
+    tbody.innerHTML = visibles.map(({ f, i }, k) => `
+        <tr style="border-bottom:1px solid #1a1f2e;${k%2===0?'background:#0f1117':''};">
             <td style="padding:10px 12px;color:#718096;">${facturasSRI.length-i}</td>
             <td style="padding:10px 12px;color:#e2e8f0;white-space:nowrap;">${f.fechaEmision||'-'}</td>
             <td style="padding:10px 12px;color:#60a5fa;white-space:nowrap;font-family:monospace;">${botonImprimir(f)}${f.numero||'-'}</td>
@@ -888,8 +917,9 @@ function renderTablaFacturas() {
 }
 
 function exportarFacturasExcel() {
-    if (!facturasSRI.length) return;
-    const filas = facturasSRI.map((f,i) => ({
+    const visibles = facturasVisibles();
+    if (!visibles.length) return;
+    const filas = visibles.map(({ f, i }) => ({
         'N°': facturasSRI.length-i,
         'Fecha Emisión': f.fechaEmision||'',
         'Número': f.numero||'',
@@ -1601,6 +1631,9 @@ LineasFactura.montar(document.getElementById('bloque-productos'), () => {
 Concepto.montar(document.getElementById('xml-producto'));
 Comision.montar({ importe: document.getElementById('obs-importe'), pct: document.getElementById('xml-pct'), monto: document.getElementById('xml-ganancia') });
 NotaCredito.montarPanel(document.getElementById('panel-notas'), { badge: badgeEstado });
+// Listado de Documentos: filtro por tipo y rango de fechas (listado_documentos_cliente.js).
+ListadoDocumentos.iniciar({ api: Api, obtenerFacturas: () => facturasSRI, pintarFacturas: renderTablaFacturas,
+    exportarFacturas: exportarFacturasExcel, badge: badgeEstado, usuario: usuarioActivo });
 Sesion.iniciar({ exigir: EXIGIR_LOGIN });
 mostrarPanel('nueva');
 restaurarTransferencias();   // el Excel de transferencias guardado en este navegador vuelve solo
