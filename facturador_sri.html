@@ -155,11 +155,6 @@
                    background:transparent; color:#718096; letter-spacing:0.5px;">
             📦 Catálogo
         </button>
-        <button onclick="mostrarPanel('notas')" id="btn-tab-notas"
-            style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
-                   background:transparent; color:#718096; letter-spacing:0.5px;">
-            ↩ Notas
-        </button>
         <button onclick="mostrarPanel('empresa')" id="btn-tab-empresa"
             style="flex:1 0 auto; white-space:nowrap; padding:10px 12px; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;
                    background:transparent; color:#718096; letter-spacing:0.5px;">
@@ -398,7 +393,6 @@
 
     <div id="panel-catalogo" style="display:none;"></div>
 
-    <div id="panel-notas" style="display:none;"></div>
     <div id="panel-empresa" style="display:none;">
         <div style="background:#1a1f2e;border:1px solid #2d3748;border-radius:16px;padding:20px;margin-bottom:12px">
             <div style="font-size:13px;font-weight:700;color:#94a3b8;letter-spacing:2px;margin-bottom:14px">MI EMPRESA</div>
@@ -672,7 +666,7 @@ async function verificarEstadoFinal(numeroFactura, intento) {
 /* ══════════════════════════════
    PESTAÑAS Y BORRADORES
 ══════════════════════════════ */
-const PANELES = ['nueva', 'facturas', 'borradores', 'catalogo', 'notas', 'empresa'];
+const PANELES = ['nueva', 'facturas', 'borradores', 'catalogo', 'empresa'];
 function mostrarPanel(panel) {
     PANELES.forEach(nombre => {
         const activo = nombre === panel;
@@ -686,7 +680,6 @@ function mostrarPanel(panel) {
     if (panel === 'nueva' && !opXML) abrirFacturaDirecta(); // sin factura en curso: arma una nueva
     if (panel === 'facturas') ListadoDocumentos.alAbrir();
     if (panel === 'borradores') cargarBorradores();
-    if (panel === 'notas') NotaCredito.recargar();
 }
 
 // Junta los datos del formulario en un solo objeto. La usan tanto el guardado
@@ -1611,7 +1604,7 @@ function generarYDescargarXML() {
 }
 
 // Sesión: EXIGIR_LOGIN pasa a true cuando el servidor ya exige token (Fase 3).
-const EXIGIR_LOGIN = true;
+const EXIGIR_LOGIN = false;
 Api.init(CFB_SERVER_URL);
 Catalogo.montarPanel(document.getElementById('panel-catalogo'));
 DatosEmpresa.montar(document.getElementById('empresa-datos'));
@@ -1630,7 +1623,6 @@ LineasFactura.montar(document.getElementById('bloque-productos'), () => {
 });
 Concepto.montar(document.getElementById('xml-producto'));
 Comision.montar({ importe: document.getElementById('obs-importe'), pct: document.getElementById('xml-pct'), monto: document.getElementById('xml-ganancia') });
-NotaCredito.montarPanel(document.getElementById('panel-notas'), { badge: badgeEstado });
 // Listado de Documentos: filtro por tipo y rango de fechas (listado_documentos_cliente.js).
 ListadoDocumentos.iniciar({ api: Api, obtenerFacturas: () => facturasSRI, pintarFacturas: renderTablaFacturas,
     exportarFacturas: exportarFacturasExcel, badge: badgeEstado, usuario: usuarioActivo });

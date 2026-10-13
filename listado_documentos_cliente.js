@@ -128,5 +128,5 @@ const ListadoDocumentos = (() => {
     function alAbrir() { if (dep && estado.tipo !== '01') refrescar(); }
     const obtenerEstado = () => Object.assign({}, estado);
 
-    return { iniciar, alAbrir, repintar, pasaFecha, fechaISO, exportar, obtenerEstado, TIPOS };
+    return { iniciar, alAbrir, refrescar, repintar, pasaFecha, fechaISO, exportar, obtenerEstado, TIPOS };
 })();
