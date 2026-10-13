@@ -1,8 +1,8 @@
 /* ══════════════════════════════════════════════════
    DATOS_EMPRESA_CLIENTE.JS — Pestaña Empresa: ver y editar los datos de la empresa de la sesión.
    Lee GET /empresa y guarda con POST /empresa (solo administrador; el servidor valida todo otra vez).
-   RUC, establecimiento, punto de emisión y ambiente se muestran pero NO se editan aquí: cambiarlos por error
-   rompe la numeración o emite en el ambiente equivocado.
+   RUC, establecimiento, punto de emisión y ambiente también se editan aquí mismo; como un error en ellos rompe la numeración o
+   emite en el ambiente equivocado, al guardar un cambio en esos cuatro se muestra qué cambia y se pide confirmación.
    Al guardar avisa con el evento 'empresa-actualizada' (Emisor actualiza el encabezado y la vista previa).
    Uso:  DatosEmpresa.montar(unDiv)  →  { recargar }      Depende de: Api, Modal.esc
 ══════════════════════════════════════════════════ */
@@ -11,11 +11,26 @@ const DatosEmpresa = (() => {
     const REGIMENES = [['GENERAL', 'Régimen general'], ['RIMPE_EMPRENDEDOR', 'RIMPE Emprendedor'], ['RIMPE_NEGOCIO_POPULAR', 'RIMPE Negocio Popular']];
     const AMBIENTES = { '1': 'Pruebas', '2': 'Producción' };
     const ESTILO_INPUT = 'width:100%;box-sizing:border-box;padding:10px 12px;background:#0f1117;border:1px solid #2d3748;border-radius:6px;color:#e2e8f0;font-size:13px;font-family:inherit';
-    const ESTILO_FIJO = ESTILO_INPUT + ';color:#718096;background:#12151d';
 
     const campo = (titulo, html) => `<label style="display:block;min-width:0"><div style="font-size:11px;color:#94a3b8;margin-bottom:4px">${titulo}</div>${html}</label>`;
     const input = (id, valor, extra = '') => `<input data-${id} value="${Modal.esc(valor || '')}" ${extra} style="${ESTILO_INPUT}">`;
-    const fijo = (valor) => `<input value="${Modal.esc(valor || '')}" disabled style="${ESTILO_FIJO}">`;
+    const SENSIBLES = [['ruc', 'RUC'], ['estab', 'Establecimiento'], ['ptoEmi', 'Punto de emisión'], ['ambiente', 'Ambiente']];
+    const nombreAmbiente = v => AMBIENTES[String(v)] || String(v);
+    // Texto de confirmación con lo que cambia en RUC / establecimiento / punto / ambiente (vacío = no cambió ninguno de los cuatro).
+    function textoConfirmacion(antes, ahora) {
+        const lineas = [];
+        SENSIBLES.forEach(([k, t]) => {
+            if (String(antes[k] ?? '') === String(ahora[k] ?? '')) return;
+            const f = x => k === 'ambiente' ? nombreAmbiente(x) : x;
+            lineas.push(`• ${t}: ${f(antes[k])}  →  ${f(ahora[k])}`);
+        });
+        if (!lineas.length) return '';
+        const avisos = [];
+        if (String(antes.ambiente) !== String(ahora.ambiente)) avisos.push(String(ahora.ambiente) === '2' ? 'Desde ahora las facturas serán REALES (producción).' : 'Desde ahora las facturas serán de PRUEBA y no tienen validez tributaria.');
+        if (String(antes.ruc) !== String(ahora.ruc)) avisos.push('El certificado de firma debe pertenecer al nuevo RUC.');
+        if (String(antes.estab) !== String(ahora.estab) || String(antes.ptoEmi) !== String(ahora.ptoEmi)) avisos.push('La numeración sigue la serie establecimiento-punto: una serie nueva empieza en 1.');
+        return `⚠️ Vas a cambiar datos de facturación:\n\n${lineas.join('\n')}\n\n${avisos.join('\n')}\n\n¿Estás seguro de guardar este cambio?`;
+    }
 
     function montar(cont) {
         let actual = null;     // lo último leído del servidor (de ahí salen RUC, estab., punto y ambiente)
@@ -44,11 +59,12 @@ const DatosEmpresa = (() => {
                 <input type="checkbox" data-iva ${Number(e.precios_incluyen_iva) === 0 ? '' : 'checked'}> Los precios de mis productos ya incluyen IVA
             </label>
             <div style="margin-top:14px;padding-top:12px;border-top:1px solid #2d3748">
-                <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">DATOS FIJOS (no se editan aquí)</div>
+                <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">DATOS DE FACTURACIÓN (al cambiarlos te pedimos confirmación)</div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-                    ${campo('RUC', fijo(e.ruc))}
-                    ${campo('ESTABLECIMIENTO - PUNTO', fijo((e.estab || '001') + ' - ' + (e.pto_emi || '001')))}
-                    ${campo('AMBIENTE', fijo(AMBIENTES[String(e.ambiente)] || e.ambiente))}
+                    ${campo('RUC', input('ruc', e.ruc, 'maxlength="13" inputmode="numeric"'))}
+                    ${campo('ESTABLECIMIENTO', input('estab', e.estab || '001', 'maxlength="3" inputmode="numeric"'))}
+                    ${campo('PUNTO DE EMISIÓN', input('ptoemi', e.pto_emi || '001', 'maxlength="3" inputmode="numeric"'))}
+                    ${campo('AMBIENTE', `<select data-ambiente style="${ESTILO_INPUT}">${Object.entries(AMBIENTES).map(([val, t]) => `<option value="${val}"${val === String(e.ambiente) ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}
                 </div>
             </div>
             <button data-guardar type="button" style="margin-top:14px;width:100%;padding:11px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">Guardar datos</button>
@@ -60,10 +76,14 @@ const DatosEmpresa = (() => {
 
         async function guardar() {
             if (!actual) return;
+            const ahora = { ruc: v('[data-ruc]'), estab: v('[data-estab]'), ptoEmi: v('[data-ptoemi]'), ambiente: $('[data-ambiente]').value };
+            const antes = { ruc: actual.ruc, estab: actual.estab || '001', ptoEmi: actual.pto_emi || '001', ambiente: String(actual.ambiente) };
+            const pregunta = textoConfirmacion(antes, ahora);
+            if (pregunta && !confirm(pregunta)) { estado('Cambio cancelado: no se guardó nada.', 'info'); return; }
             const btn = $('[data-guardar]'); btn.disabled = true; estado('⏳ Guardando…', 'info');
             try {
                 const r = await Api.json('/empresa', 'POST', {
-                    ruc: actual.ruc, estab: actual.estab, ptoEmi: actual.pto_emi, ambiente: actual.ambiente,   // fijos: se devuelven tal cual
+                    ruc: ahora.ruc, estab: ahora.estab, ptoEmi: ahora.ptoEmi, ambiente: ahora.ambiente,
                     razonSocial: v('[data-razon]'), nombreComercial: v('[data-comercial]'),
                     dirMatriz: v('[data-dirmatriz]'), dirEstablecimiento: v('[data-direst]'),
                     tel: v('[data-tel]'), email: v('[data-email]'),
