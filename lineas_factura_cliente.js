@@ -43,10 +43,34 @@ const LineasFactura = (() => {
         pintar();
     }
 
+    // Excel vacío con los 3 encabezados que espera la lectura: Nombre, Precio, Iva.
+    function descargarPlantilla() {
+        const ws = XLSX.utils.aoa_to_sheet([['Nombre', 'Precio', 'Iva']]);
+        ws['!cols'] = [{ wch: 32 }, { wch: 10 }, { wch: 6 }];
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+        XLSX.writeFile(wb, 'plantilla_productos.xlsx');
+    }
+
+    // Lo que muestra la fila Nombre · Precio · Iva del formulario.
+    function vistaResumen() {
+        if (!lineas.length) return { nombre: '', precio: '', iva: '', etiquetaPrecio: 'PRECIO USD' };
+        const unica = lineas.length === 1;
+        const ivas = [...new Set(lineas.map(l => String(l.ivaPct).trim()))];
+        const simple = unica && num(lineas[0].cantidad) === 1 && Catalogo.incluyeIva;
+        return {
+            nombre: unica ? lineas[0].descripcion : `${lineas.length} productos`,
+            precio: simple ? String(lineas[0].precio).trim() : total().toFixed(2),
+            iva: ivas.length === 1 ? ivas[0] : 'Varios',
+            etiquetaPrecio: simple ? 'PRECIO USD' : 'TOTAL USD',
+        };
+    }
+
     function montar(contenedor, onCambio) {
         cont = contenedor; alCambiar = onCambio || alCambiar;
         const archivo = cont.querySelector('[data-archivo]');
         cont.querySelector('[data-leer]').onclick = () => archivo.click();
+        const pl = cont.querySelector('[data-plantilla]');
+        if (pl) pl.onclick = descargarPlantilla;
         archivo.onchange = async ev => {
             const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
             try { await leerExcel(f); } catch (e) { alert('⚠️ ' + e.message); }
@@ -67,6 +91,7 @@ const LineasFactura = (() => {
 
     return {
         montar,
+        vistaResumen,
         hay: () => lineas.length > 0,
         total,
         limpiar() { lineas = []; pintar(); },
